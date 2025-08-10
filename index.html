@@ -726,7 +726,7 @@ function renderPerMedTables(wrapper, payload){
     regsSorted.forEach(function(r){
       var tr = document.createElement('tr');
       var tdMed = document.createElement('td');
-      tdMed.innerHTML = svgDot(r.capColor, 10) + ' ' + stripDesc(r.name) + ' <span class="small">('+(getCapLabel(r)||'—')+')</span>';
+      tdMed.innerHTML = svgDot(r.capColor, 10) + ' ' + r.name + ' <span class="small">('+(getCapLabel(r)||'—')+')</span>';
       tr.appendChild(tdMed);
       subset.forEach(function(slot){
         var td = document.createElement('td');
