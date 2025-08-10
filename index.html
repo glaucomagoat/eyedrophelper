@@ -23,8 +23,8 @@
     @media(min-width:1000px){.grid{grid-template-columns:1fr 2fr}}
     .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
     label{display:block;font-size:14px;margin:6px 0 4px}
-    input[type="text"],input[type="date"],input[type="time"],input[type="number"]{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--border)}
-    .catalog{max-height:360px;overflow:auto;padding-right:6px}
+    input[type="text"],input[type="date"],input[type="time"],input[type="number"],select{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--border)}
+    .catalog{max-height:360px;overflow:auto;padding-right:6px;position:relative}
     .groupHead{position:sticky;top:0;background:#f8fafc;border-bottom:1px solid var(--border);padding:4px 6px;font-weight:700;font-size:12px;color:#334155;z-index:2}
     .row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)}
     .row:last-child{border-bottom:none}
@@ -46,17 +46,19 @@
     .entry .colorname{font-size:11px;color:var(--muted)}
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
 <header>
   <div class="container" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-    <h1>Eye Drop Scheduler</h1>
-    <div style="font-size:0.9em;color:#555;margin-top:4px;">Created by Michael C Yang MD</div>
+    <div>
+      <h1 style="margin-bottom:2px">Eye Drop Scheduler</h1>
+      <div class="small">Created by Michael C Yang MD</div>
+    </div>
     <div class="actions">
       <button class="btn dark" id="downloadJsonBtn">Download JSON</button>
-      <button class="btn primary" id="printBtn">Print schedule</button>
+      <button class="btn primary" id="printBtn">Print schedule (PDF)</button>
     </div>
   </div>
 </header>
@@ -101,8 +103,7 @@
         <button class="btn ghost" id="addCustomMedBtn">+ Custom med</button>
       </div>
       <div class="small" style="margin:6px 0 10px">Note: Cap colors can vary by country/manufacturer. Verify with bottle/label.</div>
-      
-<div id="catalogControls" style="position:sticky;top:0;background:#fff;padding:8px 0 10px;border-bottom:1px solid var(--border);z-index:1">
+      <div id="catalogControls" style="position:sticky;top:0;background:#fff;padding:8px 0 10px;border-bottom:1px solid var(--border);z-index:1">
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
     <input id="catalogSearch" type="text" placeholder="Search brand or generic…" style="flex:1;min-width:220px;padding:8px 10px;border:1px solid var(--border);border-radius:10px">
     <label class="small" style="display:flex;align-items:center;gap:6px"><input id="toggleFavorites" type="checkbox"> ⭐ Favorites</label>
@@ -134,20 +135,20 @@
       <div class="card" id="printableCard"></div>
     </div>
   </section>
-
-  <section class="container" style="margin-top:12px">
-    <div class="card">
-      <h2>PDF Preview</h2>
-      <div class="small" style="margin-bottom:8px">Preview the PDF exactly as it will export.</div>
-      <div id="pdfPreview" style="height:420px; overflow:auto; border:1px solid var(--border); border-radius:12px; background:#fff; padding:8px; display:flex; gap:12px; flex-direction:column"></div>
-      <div id="pdfMeta" class="small" style="margin-top:8px;color:var(--muted)"></div>
-      <div class="actions" style="margin-top:10px">
-        <button class="btn ghost" id="refreshPreview">Refresh preview</button>
-        <button class="btn primary" id="downloadPdfBtn">Download PDF</button>
-      </div>
-    </div>
-  </section>
 </main>
+
+<section class="container" style="margin-top:12px">
+  <div class="card">
+    <h2>PDF Preview</h2>
+    <div class="small" style="margin-bottom:8px">Preview the PDF exactly as it will export.</div>
+    <div id="pdfPreview" style="height:420px; overflow:auto; border:1px solid var(--border); border-radius:12px; background:#fff; padding:8px; display:flex; gap:12px; flex-direction:column"></div>
+    <div id="pdfMeta" class="small" style="margin-top:8px;color:var(--muted)"></div>
+    <div class="actions" style="margin-top:10px">
+      <button class="btn ghost" id="refreshPreview">Refresh preview</button>
+      <button class="btn primary" id="downloadPdfBtn">Download PDF</button>
+    </div>
+  </div>
+</section>
 
 <script>
 // ---------- Minimal polyfills for older Safari ----------
@@ -169,24 +170,8 @@ if (typeof Object.assign != 'function') {
 }
 
 // ---------------- Data & State ----------------
-var SLOT_LABEL = {
-  morning: 'Morning ⏰',
-  midmorning: 'Mid-morning',
-  noon: 'Noon ☀️',
-  lateafternoon: 'Late afternoon',
-  evening: 'Evening 🌙',
-  bedtime: 'Bedtime 🛏️'
-};
-var SLOT_ORDER = ['morning','midmorning','noon','lateafternoon','evening','bedtime'];
 
-// custom color order for grouping
-var COLOR_ORDER = ['teal','yellow','purple','orange','blue','lightgreen','white','pink','gray','brown'];
-function colorRank(c){
-  var k = String(c||'').toLowerCase();
-  var idx = COLOR_ORDER.indexOf(k);
-  return idx === -1 ? 999 : idx;
-}
-
+// --- Catalog filters + favorites ---
 function saveFavs(){ try{ localStorage.setItem('gds_favs', JSON.stringify(favorites)); }catch(e){} }
 function loadFavs(){ try{ var s = localStorage.getItem('gds_favs'); return s? JSON.parse(s) : {}; }catch(e){ return {}; } }
 var favorites = loadFavs();
@@ -207,6 +192,23 @@ function groupByColor(items){
 }
 function makeChip(text, active){ return '<span class="chip" style="cursor:pointer;background:'+(active?'#eef2ff':'#fff')+'">'+text+'</span>'; }
 
+var SLOT_LABEL = {
+  morning: 'Morning ⏰',
+  midmorning: 'Mid-morning',
+  noon: 'Noon ☀️',
+  lateafternoon: 'Late afternoon',
+  evening: 'Evening 🌙',
+  bedtime: 'Bedtime 🛏️'
+};
+var SLOT_ORDER = ['morning','midmorning','noon','lateafternoon','evening','bedtime'];
+
+// custom color order for grouping
+var COLOR_ORDER = ['teal','yellow','purple','orange','blue','lightgreen','white','pink','gray','brown'];
+function colorRank(c){
+  var k = String(c||'').toLowerCase();
+  var idx = COLOR_ORDER.indexOf(k);
+  return idx === -1 ? 999 : idx;
+}
 
 var DEFAULT_DROPS = [
   { id:'latanoprost', name:'Xalatan (Latanoprost)', capColor:'teal', medClass:'Glaucoma', freqPresets:[
@@ -263,9 +265,7 @@ var DEFAULT_DROPS = [
     ]},
 
   { id:'pred_acetate', name:'Pred Forte (Prednisolone Acetate)', capColor:'pink', medClass:'Steroid', freqPresets:[
-      {label:'QID',slots:['morning','noon','evening','bedtime']},
-      {label:'6x/day',slots:['morning','midmorning','noon','lateafternoon','evening','bedtime']},
-      {label:'Pred 4x/day 2wk → 2x/day 2wk → stop', slots:['morning','noon','evening','bedtime']}
+      {label:'QID',slots:['morning','noon','evening','bedtime']}
     ]},
   { id:'ketorolac', name:'Acular (Ketorolac)', capColor:'gray', medClass:'NSAID', freqPresets:[
       {label:'QID',slots:['morning','noon','evening','bedtime']}
@@ -308,7 +308,6 @@ function toAmPm(hhmm){
   var h12 = h%12; if(h12===0) h12=12;
   return h12+':'+m+' '+ampm;
 }
-function stripDesc(name){ return String(name||'').replace(/\s*\(.*?\)\s*/g, ''); }
 function titleCase(s){ return String(s||'').replace(/[_\-]+/g,' ').replace(/\b[a-z]/g,function(m){ return m.toUpperCase(); }); }
 function niceColorName(c){ return titleCase(c||''); }
 function getCapLabel(obj){ return obj.capLabel ? obj.capLabel : niceColorName(obj.capColor); }
@@ -317,6 +316,13 @@ function svgDot(color, size){
   return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 '+s+' '+s+'" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle; margin-right:6px;"><circle cx="'+(s/2)+'" cy="'+(s/2)+'" r="'+(s/2 - 0.5)+'" fill="'+color+'" stroke="rgba(15,23,42,.2)"/></svg>';
 }
 function cssForcePrintColors(){ return '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}'; }
+
+function eyeFull(code){
+  var c = String(code||'OU').toUpperCase();
+  if(c==='OD') return 'Right Eye';
+  if(c==='OS') return 'Left Eye';
+  return 'Both Eyes';
+}
 
 function getTimes(){
   return {
@@ -342,8 +348,8 @@ function sortByColorThenName(arr){
   return arr.slice().sort(function(a,b){
     var ra = colorRank(a.capColor), rb = colorRank(b.capColor);
     if(ra !== rb) return ra - rb;
-    var na = stripDesc(a.name).toLowerCase();
-    var nb = stripDesc(b.name).toLowerCase();
+    var na = a.name.toLowerCase();
+    var nb = b.name.toLowerCase();
     if(na < nb) return -1;
     if(na > nb) return 1;
     return 0;
@@ -358,12 +364,12 @@ function activeSlotsForDay(regimen, dayIndex){
       for(var i=0;i<r.taper.steps.length;i++){
         var step = r.taper.steps[i];
         if(d <= step.days){
-          return {id:r.id, name:r.name, capColor:r.capColor, capLabel:r.capLabel, slots:step.slots, notes:r.notes||'', medClass:r.medClass};
+          return {id:r.id, name:r.name, capColor:r.capColor, capLabel:r.capLabel, eye:(r.eye||'OU'), slots:step.slots, notes:r.notes||'', medClass:r.medClass};
         } else { d -= step.days; }
       }
-      return {id:r.id, name:r.name, capColor:r.capColor, capLabel:r.capLabel, slots:[], notes:r.notes||'', medClass:r.medClass};
+      return {id:r.id, name:r.name, capColor:r.capColor, capLabel:r.capLabel, eye:(r.eye||'OU'), slots:[], notes:r.notes||'', medClass:r.medClass};
     } else {
-      return {id:r.id, name:r.name, capColor:r.capColor, capLabel:r.capLabel, slots:r.slots||[], notes:r.notes||'', medClass:r.medClass};
+      return {id:r.id, name:r.name, capColor:r.capColor, capLabel:r.capLabel, eye:(r.eye||'OU'), slots:r.slots||[], notes:r.notes||'', medClass:r.medClass};
     }
   });
 }
@@ -371,14 +377,14 @@ function activeSlotsForDay(regimen, dayIndex){
 function getPayload(){
   return {
     type:'glaucoma-drop-schedule',
-    version:16,
+    version:17,
     patientName: byId('patientName').value || '',
     startDate: byId('startDate').value || new Date().toISOString().slice(0,10),
     durationDays: Math.max(1, parseInt(byId('durationDays').value||'28',10)),
     times: getTimes(),
     regimen: selected.map(function(s){
       return {
-        id:s.id, name:s.name, capColor:s.capColor, capLabel:s.capLabel, slots:s.slots, notes:s.notes||'', medClass:s.medClass,
+        id:s.id, name:s.name, capColor:s.capColor, capLabel:s.capLabel, eye:(s.eye||'OU'), slots:s.slots, notes:s.notes||'', medClass:s.medClass,
         taper: (s.taper && s.taper.enabled) ? {enabled:true,steps:s.taper.steps} : {enabled:false,steps:[]}
       };
     })
@@ -386,7 +392,7 @@ function getPayload(){
 }
 // chunks array into groups of size n
 function chunk(arr, n){
-  var out=[]; for(var i=0;i<arr.length;i+=n){ out.push(arr.slice(i,i+n)); } return out;
+  var out=[]; for(var i=0;i<arr.length;i+=n){ out.push(arr.slice(0+i, n+i)); } return out;
 }
 // get unique active slots for a day
 function activeSlotsSet(dayRegs){
@@ -399,6 +405,8 @@ function renderCatalog(){
   var root = byId('catalog'); var empty = byId('catalogEmpty');
   root.innerHTML='';
   if(!catalog || !catalog.length){ empty.style.display='block'; return; } else { empty.style.display='none'; }
+
+function isSelected(id){ for(var i=0;i<selected.length;i++){ if(selected[i].id===id) return true; } return false; }
   var arr=[]; for(var i=0;i<catalog.length;i++){ if(medMatches(catalog[i])) arr.push(catalog[i]); }
   if(filters.selectedFirst){ arr.sort(function(a,b){ var sa=isSelected(a.id)?0:1; var sb=isSelected(b.id)?0:1; if(sa!==sb) return sa-sb; return 0; }); }
   arr = sortByColorThenName(arr);
@@ -419,67 +427,14 @@ function renderCatalog(){
     root.appendChild(gWrap);
   }
 }
-function isSelected(id){ for(var i=0;i<selected.length;i++){ if(selected[i].id===id) return true; } return false; }
 
-
-function buildFilterUI(){
-  var chips = byId('filterChips'); if(!chips) return;
-  // Build class filter chips
-  var classes = {}; for(var i=0;i<catalog.length;i++){ var cls=(catalog[i].medClass||'').split('(')[0].trim().toLowerCase(); if(cls) classes[cls]=true; }
-  var clsList = Object.keys(classes).sort();
-  var htmlCls = '<div class="small" style="margin-right:6px">Classes:</div>';
-  htmlCls += makeChip('All', !filters.cls);
-  for(var i=0;i<clsList.length;i++){ var t=clsList[i]; htmlCls += makeChip(t.charAt(0).toUpperCase()+t.slice(1), filters.cls===t); }
-  chips.innerHTML = htmlCls;
-  chips.onclick = function(e){
-    var t=e.target; while(t && !t.className.includes('chip')) t=t.parentElement; if(!t) return;
-    var label=t.textContent.trim().toLowerCase();
-    filters.cls = (label==='all') ? null : label;
-    renderCatalog(); buildFilterUI();
-  };
-
-  // Build color filter chips
-  var idx = byId('colorIndex'); if(idx){
-    var htmlIdx = '<div class="small" style="margin-right:6px">Colors:</div>';
-    htmlIdx += makeChip('All', !filters.color);
-    var seen={}, colorList = COLOR_ORDER.slice();
-    for(var j=0;j<catalog.length;j++){ var col=String(catalog[j].capColor||'').toLowerCase(); if(colorList.indexOf(col)===-1 && !seen[col]){ colorList.push(col); seen[col]=true; } }
-    for(var j=0;j<colorList.length;j++){ var col=colorList[j]; htmlIdx += makeChip(col.charAt(0).toUpperCase()+col.slice(1), filters.color===col); }
-    idx.innerHTML = htmlIdx;
-    idx.onclick = function(e){
-      var t=e.target; while(t && !t.className.includes('chip')) t=t.parentElement; if(!t) return;
-      var label=t.textContent.trim().toLowerCase();
-      filters.color = (label==='all') ? null : label;
-      renderCatalog(); buildFilterUI();
-      var anchor = byId('group_'+(filters.color||'')); if(anchor){ anchor.scrollIntoView({behavior:'smooth', block:'start'}); }
-    };
-  }
-
-  // Wire search + toggles
-  var search = byId('catalogSearch'); if(search){ search.oninput = function(){ filters.q = search.value; renderCatalog(); }; }
-  var favT = byId('toggleFavorites'); if(favT){ favT.onchange = function(){ filters.showFavs = favT.checked; renderCatalog(); }; }
-  var selFirst = byId('toggleSelectedFirst'); if(selFirst){ selFirst.onchange = function(){ filters.selectedFirst = selFirst.checked; renderCatalog(); }; }
-}
-
-function renderQR(){
-  var container = byId('qrcode');
-  container.innerHTML='';
-  var payload = getPayload();
-  var enc = encodePayload(payload);
-  if (window.QRCode) { qr = new QRCode(container, {text: enc, width:192, height:192}); }
-  byId('payloadPreview').textContent = 'Payload: ' + enc.slice(0,120) + '…';
-}
-
-
-// ---------- Selection & Taper Helpers (restored) ----------
 function addDrop(opt){
-  // prevent duplicates
   for(var i=0;i<selected.length;i++){ if(selected[i].id===opt.id) return; }
   var slots = [];
   if(opt.freqPresets && opt.freqPresets.length && opt.freqPresets[0].slots){
     slots = opt.freqPresets[0].slots.slice();
   }
-  selected.push({id:opt.id,name:opt.name,capColor:opt.capColor,capLabel:opt.capLabel,slots:slots,notes:'', taper:{enabled:false,steps:[]}, medClass:opt.medClass});
+  selected.push({id:opt.id,name:opt.name,capColor:opt.capColor,capLabel:opt.capLabel,eye:'OU',slots:slots,notes:'', taper:{enabled:false,steps:[]}, medClass:opt.medClass});
   renderSelected();
 }
 function removeDrop(id){
@@ -489,8 +444,8 @@ function removeDrop(id){
 function toggleSlot(id,slot){
   selected = selected.map(function(s){
     if(s.id!==id) return s;
-    var has = (s.slots||[]).indexOf(slot) > -1;
-    var next = has ? s.slots.filter(function(t){ return t!==slot; }) : (s.slots||[]).concat([slot]);
+    var has = slotHas(s.slots, slot);
+    var next = has ? s.slots.filter(function(t){ return t!==slot; }) : s.slots.concat([slot]);
     return Object.assign({}, s, {slots: next});
   });
   renderSelected();
@@ -544,16 +499,6 @@ function addCommonTaper(id, type){
     ],
     'acular_440': [
       {days:14, slots:['morning','noon','evening','bedtime']}
-    ],
-    'acular_4422': [
-      {days:14, slots:['morning','noon','evening','bedtime']},
-      {days:14, slots:['morning','evening']}
-    ],
-    'acular_4321': [
-      {days:7, slots:['morning','noon','evening','bedtime']},
-      {days:7, slots:['morning','noon','evening']},
-      {days:7, slots:['morning','evening']},
-      {days:7, slots:['bedtime']}
     ]
   };
   var steps = presets[type] || [];
@@ -562,6 +507,55 @@ function addCommonTaper(id, type){
   });
   renderSelected();
 }
+
+function buildFilterUI(){
+  var chips = byId('filterChips'); if(!chips) return;
+  // Build class filter chips
+  var classes = {}; for(var i=0;i<catalog.length;i++){ var cls=(catalog[i].medClass||'').split('(')[0].trim().toLowerCase(); if(cls) classes[cls]=true; }
+  var clsList = Object.keys(classes).sort();
+  var htmlCls = '<div class="small" style="margin-right:6px">Classes:</div>';
+  htmlCls += makeChip('All', !filters.cls);
+  for(var i=0;i<clsList.length;i++){ var t=clsList[i]; htmlCls += makeChip(t.charAt(0).toUpperCase()+t.slice(1), filters.cls===t); }
+  chips.innerHTML = htmlCls;
+  chips.onclick = function(e){
+    var t=e.target; while(t && !t.className.includes('chip')) t=t.parentElement; if(!t) return;
+    var label=t.textContent.trim().toLowerCase();
+    filters.cls = (label==='all') ? null : label;
+    renderCatalog(); buildFilterUI();
+  };
+
+  // Build color filter chips
+  var idx = byId('colorIndex'); if(idx){
+    var htmlIdx = '<div class="small" style="margin-right:6px">Colors:</div>';
+    htmlIdx += makeChip('All', !filters.color);
+    var seen={}, colorList = COLOR_ORDER.slice();
+    for(var j=0;j<catalog.length;j++){ var col=String(catalog[j].capColor||'').toLowerCase(); if(colorList.indexOf(col)===-1 && !seen[col]){ colorList.push(col); seen[col]=true; } }
+    for(var j=0;j<colorList.length;j++){ var col=colorList[j]; htmlIdx += makeChip(col.charAt(0).toUpperCase()+col.slice(1), filters.color===col); }
+    idx.innerHTML = htmlIdx;
+    idx.onclick = function(e){
+      var t=e.target; while(t && !t.className.includes('chip')) t=t.parentElement; if(!t) return;
+      var label=t.textContent.trim().toLowerCase();
+      filters.color = (label==='all') ? null : label;
+      renderCatalog(); buildFilterUI();
+      var anchor = byId('group_'+(filters.color||'')); if(anchor){ anchor.scrollIntoView({behavior:'smooth', block:'start'}); }
+    };
+  }
+
+  // Wire search + toggles
+  var search = byId('catalogSearch'); if(search){ search.oninput = function(){ filters.q = search.value; renderCatalog(); }; }
+  var favT = byId('toggleFavorites'); if(favT){ favT.onchange = function(){ filters.showFavs = favT.checked; renderCatalog(); }; }
+  var selFirst = byId('toggleSelectedFirst'); if(selFirst){ selFirst.onchange = function(){ filters.selectedFirst = selFirst.checked; renderCatalog(); }; }
+}
+
+function renderQR(){
+  var container = byId('qrcode');
+  container.innerHTML='';
+  var payload = getPayload();
+  var enc = encodePayload(payload);
+  if (window.QRCode) { qr = new QRCode(container, {text: enc, width:192, height:192}); }
+  byId('payloadPreview').textContent = 'Payload: ' + enc.slice(0,120) + '…';
+}
+
 function renderSelected(){
   var empty = byId('selectedEmpty');
   var list = byId('selectedList');
@@ -604,11 +598,7 @@ function renderSelected(){
       } else if(s.id==='ketorolac'){
         var k1 = document.createElement('button'); k1.className='slot-btn'; k1.textContent='4/4/0';
         k1.onclick=function(){ addCommonTaper(s.id,'acular_440'); };
-        var k2 = document.createElement('button'); k2.className='slot-btn'; k2.textContent='4/4/2/2';
-        k2.onclick=function(){ addCommonTaper(s.id,'acular_4422'); };
-        var k3 = document.createElement('button'); k3.className='slot-btn'; k3.textContent='4/3/2/1';
-        k3.onclick=function(){ addCommonTaper(s.id,'acular_4321'); };
-        presets.appendChild(k1); presets.appendChild(k2); presets.appendChild(k3);
+        presets.appendChild(k1);
       }
       wrap.appendChild(presets);
 
@@ -638,8 +628,7 @@ function renderSelected(){
         var slotsDiv = document.createElement('div'); slotsDiv.style.marginTop='6px'; slotsDiv.style.display='flex'; slotsDiv.style.flexWrap='wrap'; slotsDiv.style.gap='8px';
         Object.keys(SLOT_LABEL).forEach(function(slot){
           var b = document.createElement('button');
-          b.className = 'slot-btn ' + (slotHas(step.slots, slot)?'active':'');
-          b.textContent = SLOT_LABEL[slot];
+          b.className = 'slot-btn ' + (slotHas(step.slots, slot)?'active':''); b.textContent = SLOT_LABEL[slot];
           b.onclick=function(){
             selected = selected.map(function(x){
               if(x.id!==s.id) return x;
@@ -664,8 +653,7 @@ function renderSelected(){
       var slotsDiv2 = document.createElement('div'); slotsDiv2.style.marginTop='8px'; slotsDiv2.style.display='flex'; slotsDiv2.style.flexWrap='wrap'; slotsDiv2.style.gap='8px';
       Object.keys(SLOT_LABEL).forEach(function(slot){
         var b2 = document.createElement('button');
-        b2.className = 'slot-btn ' + (slotHas(s.slots, slot)?'active':'');
-        b2.textContent = SLOT_LABEL[slot];
+        b2.className = 'slot-btn ' + (slotHas(s.slots, slot)?'active':''); b2.textContent = SLOT_LABEL[slot];
         b2.onclick=function(){ toggleSlot(s.id, slot); };
         slotsDiv2.appendChild(b2);
       });
@@ -689,13 +677,45 @@ function renderSelected(){
     input.style.width='100%'; input.style.padding='10px 12px'; input.style.border='1px solid var(--border)'; input.style.borderRadius='12px';
     wrap.appendChild(lab); wrap.appendChild(input);
 
+    // Eye selector (buttons: Both/Right/Left)
+    (function(){
+      var eyeRow = document.createElement('div');
+      eyeRow.style.marginTop='8px';
+      eyeRow.style.display='flex';
+      eyeRow.style.alignItems='center';
+      eyeRow.style.gap='8px';
+      var eyeLab = document.createElement('label');
+      eyeLab.textContent='Eye';
+      eyeLab.style.margin='0';
+      function mkBtn(label, val){
+        var b = document.createElement('button');
+        b.className = 'slot-btn';
+        b.textContent = label;
+        if((s.eye||'OU')===val) b.classList.add('active');
+        b.onclick = function(){
+          selected = selected.map(function(x){ return x.id===s.id ? Object.assign({}, x, {eye: val}) : x; });
+          renderSelected(); // re-render to update active button + preview
+        };
+        return b;
+      }
+      var group = document.createElement('div');
+      group.style.display='flex'; group.style.gap='6px'; group.style.flexWrap='wrap';
+      group.appendChild(mkBtn('Both Eyes', 'OU'));
+      group.appendChild(mkBtn('Right Eye', 'OD'));
+      group.appendChild(mkBtn('Left Eye', 'OS'));
+      eyeRow.appendChild(eyeLab);
+      eyeRow.appendChild(group);
+      wrap.appendChild(eyeRow);
+    })();
+
     list.appendChild(wrap);
   });
   renderQR();
   renderPrintable();
 }
 
-function renderPerMedTables(wrapper, payload){
+function renderPerMedTables(wrapper, payload, opts){
+  opts = opts || {}; var hidePatientLine = !!opts.hidePatientLine;
   var start = new Date(payload.startDate);
   var dayIndex = 0;
   var dayRegs = activeSlotsForDay(payload.regimen, dayIndex);
@@ -707,7 +727,7 @@ function renderPerMedTables(wrapper, payload){
   var top = document.createElement('div');
   top.innerHTML = '<div style="font-weight:700">Schedule Preview (single day)</div>'+
     '<div class="small">Please wait 3-5 minutes between each eye drop.</div>'+
-    '<div class="small">'+(payload.patientName||'Patient')+' • '+fmtDate(start)+'</div>';
+    (hidePatientLine ? '' : '<div class="small">'+(payload.patientName||'Patient')+' • '+fmtDate(start)+'</div>');
   wrapper.appendChild(top);
 
   for(var c=0;c<slotsChunks.length;c++){
@@ -726,12 +746,12 @@ function renderPerMedTables(wrapper, payload){
     regsSorted.forEach(function(r){
       var tr = document.createElement('tr');
       var tdMed = document.createElement('td');
-      tdMed.innerHTML = svgDot(r.capColor, 10) + ' ' + r.name + ' <span class="small">('+(getCapLabel(r)||'—')+')</span>';
+      tdMed.innerHTML = svgDot(r.capColor, 10) + ' ' + r.name + ' <span class=\"small\">('+(getCapLabel(r)||'—')+', '+eyeFull(r.eye)+')</span>';
       tr.appendChild(tdMed);
       subset.forEach(function(slot){
         var td = document.createElement('td');
         if(slotHas(r.slots||[], slot)){
-          td.innerHTML = svgDot(r.capColor, 10) + ' ' + (getCapLabel(r)||'');
+          td.innerHTML = svgDot(r.capColor, 10) + ' ' + (getCapLabel(r)||'') + ' — ' + eyeFull(r.eye);
         } else {
           td.innerHTML = '<span class="small">—</span>';
         }
@@ -781,7 +801,7 @@ function buildTaperSummaryHTML(payload){
     if(r.taper && r.taper.enabled && r.taper.steps && r.taper.steps.length){
       any = true;
       out += '<div style="margin-top:10px"><div style="font-weight:700;margin-bottom:6px">';
-      out += svgDot(r.capColor, 10) + r.name + '</div>';
+      out += svgDot(r.capColor, 10) + r.name + ' <span class=\"small\">(' + eyeFull(r.eye) + ')</span></div>';
       out += '<table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr>';
       out += '<th style="border:1px solid #e2e8f0;padding:8px;text-align:left;background:#f1f5f9">Week #</th>';
       out += '<th style="border:1px solid #e2e8f0;padding:8px;text-align:left;background:#f1f5f9">Dates</th>';
@@ -809,29 +829,6 @@ function buildTaperSummaryHTML(payload){
   });
   if(!any) return '';
   return '<h2 style="font-size:18px;margin:14px 0 6px">Taper plan (date ranges)</h2>' + out;
-}
-
-function buildPrintableContainer(payload){
-  var container = document.createElement('div');
-  container.style.background = '#fff';
-  container.style.color = '#0f172a';
-  container.style.font = '14px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto';
-  container.style.webkitFontSmoothing = 'antialiased';
-  container.style.textRendering = 'optimizeLegibility';
-  var h = document.createElement('div');
-  h.innerHTML = '<div style="font-size:22px;font-weight:700;margin:0 0 6px">Medication Schedule</div>' +
-                '<div style="color:#475569;font-size:14px">Please wait 3-5 minutes between each eye drop.</div>' +
-                '<div style="color:#475569;font-size:14px">'+ (payload.patientName||'Patient') +' • '+ (new Date(payload.startDate)).toLocaleDateString() +'</div>';
-  container.appendChild(h);
-  var wrap = document.createElement('div');
-  renderPerMedTables(wrap, payload);
-  var taperHTML = buildTaperSummaryHTML(payload);
-  if(taperHTML){ var div = document.createElement('div'); div.innerHTML = taperHTML; wrap.appendChild(div); }
-  container.appendChild(wrap);
-  // normalize tables
-  var tables = container.querySelectorAll('table');
-  for(var ti=0; ti<tables.length; ti++){ var t=tables[ti]; t.style.width='100%'; t.style.tableLayout='fixed'; t.style.borderCollapse='collapse'; var cells=t.querySelectorAll('th,td'); for(var ci=0; ci<cells.length; ci++){ var c=cells[ci]; c.style.padding='8px'; c.style.whiteSpace='normal'; c.style.wordBreak='break-word'; c.style.overflowWrap='anywhere'; } }
-  return container;
 }
 
 function generatePrintHTML(payload){
@@ -862,11 +859,11 @@ function generatePrintHTML(payload){
     body += '</tr></thead><tbody>';
     for(var r=0;r<regsSorted.length;r++){
       var reg = regsSorted[r];
-      body += '<tr><td>'+svgDot(reg.capColor, 12)+' <span>'+esc(reg.name)+'</span> <span class="small">('+esc(getCapLabel(reg)||'—')+')</span></td>';
+      body += '<tr><td>'+svgDot(reg.capColor, 12)+' <span>'+esc(reg.name)+'</span> <span class="small">('+esc(getCapLabel(reg)||'—')+', '+esc(eyeFull(reg.eye))+')</span></td>';
       for(var i=0;i<subset.length;i++){
         var slot2 = subset[i];
         if(slotHas(reg.slots||[], slot2)){
-          body += '<td>'+svgDot(reg.capColor, 12)+' '+esc(getCapLabel(reg)||'')+'</td>';
+          body += '<td>'+svgDot(reg.capColor, 12)+' '+esc(getCapLabel(reg)||'')+' — '+esc(eyeFull(reg.eye))+'</td>';
         } else {
           body += '<td><span class="small">—</span></td>';
         }
@@ -884,7 +881,6 @@ function generatePrintHTML(payload){
   return head + body + foot;
 }
 
-
 // ------- PDF preview & export (canvas-based, preserves aspect) -------
 var _pdfCache = { blobUrl: null, pages: 0 };
 function revokePdfCache(){ try{ if(_pdfCache.blobUrl) URL.revokeObjectURL(_pdfCache.blobUrl); }catch(e){} _pdfCache = {blobUrl:null,pages:0}; }
@@ -893,7 +889,29 @@ function generatePdfAndPreview(doSave){
   return new Promise(function(resolve, reject){
     try {
       var payload = getPayload();
-      var node = buildPrintableContainer(payload);
+      var node = (function(){ // build printable container DOM for high-fidelity raster
+        var container = document.createElement('div');
+        container.style.background = '#fff';
+        container.style.color = '#0f172a';
+        container.style.font = '14px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto';
+        container.style.webkitFontSmoothing = 'antialiased';
+        container.style.textRendering = 'optimizeLegibility';
+        var nameHeader = document.createElement('div');
+        nameHeader.style.fontSize = '22pt';
+        nameHeader.style.fontWeight = '700';
+        nameHeader.style.margin = '0 0 10px 0';
+        nameHeader.textContent = payload.patientName || '';
+        if(nameHeader.textContent){ container.appendChild(nameHeader); }
+        var wrap = document.createElement('div');
+        renderPerMedTables(wrap, payload, {hidePatientLine:true});
+        var taperHTML = buildTaperSummaryHTML(payload);
+        if(taperHTML){ var div = document.createElement('div'); div.innerHTML = taperHTML; wrap.appendChild(div); }
+        container.appendChild(wrap);
+        // normalize tables
+        var tables = container.querySelectorAll('table');
+        for(var ti=0; ti<tables.length; ti++){ var t=tables[ti]; t.style.width='100%'; t.style.tableLayout='fixed'; t.style.borderCollapse='collapse'; var cells=t.querySelectorAll('th,td'); for(var ci=0; ci<cells.length; ci++){ var c=cells[ci]; c.style.padding='8px'; c.style.whiteSpace='normal'; c.style.wordBreak='break-word'; c.style.overflowWrap='anywhere'; } }
+        return container;
+      })();
       var host = document.createElement('div'); host.style.position='fixed'; host.style.left='-99999px'; host.style.top='0'; host.style.background='#fff';
       document.body.appendChild(host); host.appendChild(node);
 
@@ -943,9 +961,7 @@ byId('refreshPreview').onclick = function(){ var b=this; b.disabled=true; b.text
 byId('downloadPdfBtn').onclick = function(){ if(_pdfCache.blobUrl){ var a=document.createElement('a'); a.href=_pdfCache.blobUrl; a.download='schedule.pdf'; a.click(); } else { generatePdfAndPreview(true).catch(function(err){ alert('Download failed: '+(err&&err.message?err.message:err)); }); } };
 
 byId('printBtn').onclick = function () {
-  // Reuse same pipeline but save immediately
   generatePdfAndPreview(true).catch(function(err){
-    // Fallback to HTML window if PDF fails
     try {
       var payload = getPayload();
       var html = generatePrintHTML(payload);
