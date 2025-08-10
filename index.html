@@ -46,12 +46,14 @@
     .entry .colorname{font-size:11px;color:var(--muted)}
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
 <header>
   <div class="container" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
     <h1>Eye Drop Scheduler</h1>
-<div style="font-size:0.9em;color:#555;margin-top:4px;">Created by Michael C Yang MD</div>
+    <div style="font-size:0.9em;color:#555;margin-top:4px;">Created by Michael C Yang MD</div>
     <div class="actions">
       <button class="btn dark" id="downloadJsonBtn">Download JSON</button>
       <button class="btn primary" id="printBtn">Print schedule</button>
@@ -76,7 +78,7 @@
     </div>
     <div class="grid" style="grid-template-columns:1fr 1fr">
       <div>
-        <label>Morning time 🌅</label>
+        <label>Morning time ⏰</label>
         <input id="t_morning" type="time" value="08:00">
       </div>
       <div>
@@ -84,11 +86,11 @@
         <input id="t_noon" type="time" value="12:00">
       </div>
       <div>
-        <label>Evening time 🌇</label>
+        <label>Evening time 🌙</label>
         <input id="t_evening" type="time" value="18:00">
       </div>
       <div>
-        <label>Bedtime 🌙</label>
+        <label>Bedtime 🛏️</label>
         <input id="t_bedtime" type="time" value="22:00">
       </div>
     </div>
@@ -132,6 +134,19 @@
       <div class="card" id="printableCard"></div>
     </div>
   </section>
+
+  <section class="container" style="margin-top:12px">
+    <div class="card">
+      <h2>PDF Preview</h2>
+      <div class="small" style="margin-bottom:8px">Preview the PDF exactly as it will export.</div>
+      <div id="pdfPreview" style="height:420px; overflow:auto; border:1px solid var(--border); border-radius:12px; background:#fff; padding:8px; display:flex; gap:12px; flex-direction:column"></div>
+      <div id="pdfMeta" class="small" style="margin-top:8px;color:var(--muted)"></div>
+      <div class="actions" style="margin-top:10px">
+        <button class="btn ghost" id="refreshPreview">Refresh preview</button>
+        <button class="btn primary" id="downloadPdfBtn">Download PDF</button>
+      </div>
+    </div>
+  </section>
 </main>
 
 <script>
@@ -155,12 +170,12 @@ if (typeof Object.assign != 'function') {
 
 // ---------------- Data & State ----------------
 var SLOT_LABEL = {
-  morning: 'Morning 🌅',
+  morning: 'Morning ⏰',
   midmorning: 'Mid-morning',
   noon: 'Noon ☀️',
   lateafternoon: 'Late afternoon',
-  evening: 'Evening 🌇',
-  bedtime: 'Bedtime 🌙'
+  evening: 'Evening 🌙',
+  bedtime: 'Bedtime 🛏️'
 };
 var SLOT_ORDER = ['morning','midmorning','noon','lateafternoon','evening','bedtime'];
 
@@ -172,42 +187,25 @@ function colorRank(c){
   return idx === -1 ? 999 : idx;
 }
 
-function saveFavs(){
-  try{ localStorage.setItem('gds_favs', JSON.stringify(favorites)); }catch(e){}
-}
-function loadFavs(){
-  try{ var s = localStorage.getItem('gds_favs'); return s? JSON.parse(s) : {}; }catch(e){ return {}; }
-}
-var favorites = loadFavs(); // map id -> true
+function saveFavs(){ try{ localStorage.setItem('gds_favs', JSON.stringify(favorites)); }catch(e){} }
+function loadFavs(){ try{ var s = localStorage.getItem('gds_favs'); return s? JSON.parse(s) : {}; }catch(e){ return {}; } }
+var favorites = loadFavs();
 var filters = { q:'', color:null, cls:null, showFavs:false, selectedFirst:false };
 
 function medMatches(opt){
   var q = (filters.q||'').trim().toLowerCase();
-  if(q){
-    var hay = (opt.name||'').toLowerCase();
-    // also search inside parentheses
-    if(hay.indexOf(q)===-1) return false;
-  }
+  if(q){ var hay = (opt.name||'').toLowerCase(); if(hay.indexOf(q)===-1) return false; }
   if(filters.color && String(opt.capColor||'').toLowerCase()!==filters.color) return false;
-  if(filters.cls && String(opt.medClass||'').toLowerCase().indexOf(filters.cls)===-1) return false;
+  if(filters.cls){ var c=(opt.medClass||'').toLowerCase(); if(c.indexOf(filters.cls)===-1) return false; }
   if(filters.showFavs && !favorites[opt.id]) return false;
   return true;
 }
-
 function groupByColor(items){
   var groups = {}; var order = COLOR_ORDER.slice();
-  for(var i=0;i<items.length;i++){
-    var c = String(items[i].capColor||'').toLowerCase();
-    if(!groups[c]) groups[c] = [];
-    groups[c].push(items[i]);
-    if(order.indexOf(c)===-1){ order.push(c); }
-  }
+  for(var i=0;i<items.length;i++){ var c=String(items[i].capColor||'').toLowerCase(); if(!groups[c]) groups[c]=[]; groups[c].push(items[i]); if(order.indexOf(c)===-1) order.push(c); }
   return {groups:groups, order:order};
 }
-
-function makeChip(text, active){
-  return '<span class="chip" style="cursor:pointer;background:'+(active?'#eef2ff':'#fff')+'">'+text+'</span>';
-}
+function makeChip(text, active){ return '<span class="chip" style="cursor:pointer;background:'+(active?'#eef2ff':'#fff')+'">'+text+'</span>'; }
 
 
 var DEFAULT_DROPS = [
@@ -401,22 +399,82 @@ function renderCatalog(){
   var root = byId('catalog'); var empty = byId('catalogEmpty');
   root.innerHTML='';
   if(!catalog || !catalog.length){ empty.style.display='block'; return; } else { empty.style.display='none'; }
-  var items = sortByColorThenName(catalog);
-  items.forEach(function(opt){
-    var row = document.createElement('div'); row.className='row';
-    var left = document.createElement('div');
-    left.innerHTML = '<div style="font-weight:600">'+opt.name+'</div>' +
-      '<div class="small">'+(opt.medClass||'')+'</div>' +
-      '<div class="small">Cap: <span class="chip"><span class="cap" style="background:'+opt.capColor+'"></span>'+ (getCapLabel(opt)||'—') +'</span></div>';
-    var addBtn = document.createElement('button'); addBtn.className='btn dark'; addBtn.textContent='Add';
-    addBtn.onclick=function(){ addDrop(opt); };
-    row.appendChild(left); row.appendChild(addBtn); root.appendChild(row);
-  });
+  var arr=[]; for(var i=0;i<catalog.length;i++){ if(medMatches(catalog[i])) arr.push(catalog[i]); }
+  if(filters.selectedFirst){ arr.sort(function(a,b){ var sa=isSelected(a.id)?0:1; var sb=isSelected(b.id)?0:1; if(sa!==sb) return sa-sb; return 0; }); }
+  arr = sortByColorThenName(arr);
+  var gb = groupByColor(arr);
+  for(var gi=0; gi<gb.order.length; gi++){ var color=gb.order[gi]; if(!gb.groups[color]||gb.groups[color].length===0) continue;
+    var gWrap=document.createElement('div'); gWrap.id='group_'+color;
+    var head=document.createElement('div'); head.className='groupHead'; head.innerHTML='<span style="display:inline-flex;align-items:center;gap:6px">'+svgDot(color,10)+' '+color.charAt(0).toUpperCase()+color.slice(1)+'</span>'; gWrap.appendChild(head);
+    for(var k=0;k<gb.groups[color].length;k++){ var opt=gb.groups[color][k];
+      var row=document.createElement('div'); row.className='row';
+      var left=document.createElement('div');
+      left.innerHTML = '<div style="font-weight:600">'+opt.name+'</div>' + '<div class="small">'+(opt.medClass||'')+'</div>' + '<div class="small">Cap: <span class="chip"><span class="cap" style="background:'+opt.capColor+'"></span>'+ (getCapLabel(opt)||'—') +'</span></div>';
+      var btns=document.createElement('div'); btns.style.display='flex'; btns.style.gap='6px'; btns.style.alignItems='center';
+      var fav=document.createElement('button'); fav.className='btn ghost'; fav.title='Favorite'; fav.textContent = favorites[opt.id] ? '⭐' : '☆'; fav.onclick=(function(opt){ return function(){ favorites[opt.id]=!favorites[opt.id]; saveFavs(); renderCatalog(); }; })(opt);
+      var addBtn=document.createElement('button'); addBtn.className='btn dark'; addBtn.textContent = isSelected(opt.id)?'Added':'Add'; addBtn.disabled=isSelected(opt.id); addBtn.onclick=(function(opt){ return function(){ addDrop(opt); }; })(opt);
+      btns.appendChild(fav); btns.appendChild(addBtn);
+      row.appendChild(left); row.appendChild(btns); gWrap.appendChild(row);
+    }
+    root.appendChild(gWrap);
+  }
 }
-// Auto-apply first preset on add
+function isSelected(id){ for(var i=0;i<selected.length;i++){ if(selected[i].id===id) return true; } return false; }
+
+
+function buildFilterUI(){
+  var chips = byId('filterChips'); if(!chips) return;
+  // Build class filter chips
+  var classes = {}; for(var i=0;i<catalog.length;i++){ var cls=(catalog[i].medClass||'').split('(')[0].trim().toLowerCase(); if(cls) classes[cls]=true; }
+  var clsList = Object.keys(classes).sort();
+  var htmlCls = '<div class="small" style="margin-right:6px">Classes:</div>';
+  htmlCls += makeChip('All', !filters.cls);
+  for(var i=0;i<clsList.length;i++){ var t=clsList[i]; htmlCls += makeChip(t.charAt(0).toUpperCase()+t.slice(1), filters.cls===t); }
+  chips.innerHTML = htmlCls;
+  chips.onclick = function(e){
+    var t=e.target; while(t && !t.className.includes('chip')) t=t.parentElement; if(!t) return;
+    var label=t.textContent.trim().toLowerCase();
+    filters.cls = (label==='all') ? null : label;
+    renderCatalog(); buildFilterUI();
+  };
+
+  // Build color filter chips
+  var idx = byId('colorIndex'); if(idx){
+    var htmlIdx = '<div class="small" style="margin-right:6px">Colors:</div>';
+    htmlIdx += makeChip('All', !filters.color);
+    var seen={}, colorList = COLOR_ORDER.slice();
+    for(var j=0;j<catalog.length;j++){ var col=String(catalog[j].capColor||'').toLowerCase(); if(colorList.indexOf(col)===-1 && !seen[col]){ colorList.push(col); seen[col]=true; } }
+    for(var j=0;j<colorList.length;j++){ var col=colorList[j]; htmlIdx += makeChip(col.charAt(0).toUpperCase()+col.slice(1), filters.color===col); }
+    idx.innerHTML = htmlIdx;
+    idx.onclick = function(e){
+      var t=e.target; while(t && !t.className.includes('chip')) t=t.parentElement; if(!t) return;
+      var label=t.textContent.trim().toLowerCase();
+      filters.color = (label==='all') ? null : label;
+      renderCatalog(); buildFilterUI();
+      var anchor = byId('group_'+(filters.color||'')); if(anchor){ anchor.scrollIntoView({behavior:'smooth', block:'start'}); }
+    };
+  }
+
+  // Wire search + toggles
+  var search = byId('catalogSearch'); if(search){ search.oninput = function(){ filters.q = search.value; renderCatalog(); }; }
+  var favT = byId('toggleFavorites'); if(favT){ favT.onchange = function(){ filters.showFavs = favT.checked; renderCatalog(); }; }
+  var selFirst = byId('toggleSelectedFirst'); if(selFirst){ selFirst.onchange = function(){ filters.selectedFirst = selFirst.checked; renderCatalog(); }; }
+}
+
+function renderQR(){
+  var container = byId('qrcode');
+  container.innerHTML='';
+  var payload = getPayload();
+  var enc = encodePayload(payload);
+  if (window.QRCode) { qr = new QRCode(container, {text: enc, width:192, height:192}); }
+  byId('payloadPreview').textContent = 'Payload: ' + enc.slice(0,120) + '…';
+}
+
+
+// ---------- Selection & Taper Helpers (restored) ----------
 function addDrop(opt){
-  var i;
-  for(i=0;i<selected.length;i++){ if(selected[i].id===opt.id) return; }
+  // prevent duplicates
+  for(var i=0;i<selected.length;i++){ if(selected[i].id===opt.id) return; }
   var slots = [];
   if(opt.freqPresets && opt.freqPresets.length && opt.freqPresets[0].slots){
     slots = opt.freqPresets[0].slots.slice();
@@ -431,8 +489,8 @@ function removeDrop(id){
 function toggleSlot(id,slot){
   selected = selected.map(function(s){
     if(s.id!==id) return s;
-    var has = slotHas(s.slots, slot);
-    var next = has ? s.slots.filter(function(t){ return t!==slot; }) : s.slots.concat([slot]);
+    var has = (s.slots||[]).indexOf(slot) > -1;
+    var next = has ? s.slots.filter(function(t){ return t!==slot; }) : (s.slots||[]).concat([slot]);
     return Object.assign({}, s, {slots: next});
   });
   renderSelected();
@@ -504,121 +562,6 @@ function addCommonTaper(id, type){
   });
   renderSelected();
 }
-
-
-function buildFilterUI(){
-  var chips = byId('filterChips');
-  if(!chips) return;
-  // Class chips (unique classes from catalog)
-  var classes = {};
-  for(var i=0;i<catalog.length;i++){ var cls=(catalog[i].medClass||'').split('(')[0].trim().toLowerCase(); if(cls) classes[cls]=true; }
-  var clsList = Object.keys(classes).sort();
-  var htmlCls = '<div class="small" style="margin-right:6px">Classes:</div>';
-  htmlCls += makeChip('All', !filters.cls);
-  for(var i=0;i<clsList.length;i++){ var t=clsList[i]; htmlCls += makeChip(t.charAt(0).toUpperCase()+t.slice(1), filters.cls===t); }
-  chips.innerHTML = htmlCls;
-  chips.onclick = function(e){
-    var t = e.target; while(t && !t.className.includes('chip')){ t = t.parentElement; }
-    if(!t) return;
-    var label = t.textContent.trim().toLowerCase();
-    if(label==='all'){ filters.cls=null; } else { filters.cls=label; }
-    renderCatalog();
-    buildFilterUI();
-  };
-
-  var idx = byId('colorIndex');
-  var htmlIdx = '<div class="small" style="margin-right:6px">Colors:</div>';
-  htmlIdx += makeChip('All', !filters.color);
-  // Build a color list = COLOR_ORDER + any extra colors from catalog
-  var seen = {}; var colorList = COLOR_ORDER.slice();
-  for(var i=0;i<catalog.length;i++){ var c = String(catalog[i].capColor||'').toLowerCase(); if(colorList.indexOf(c)===-1 && !seen[c]){ colorList.push(c); seen[c]=true; } }
-  for(var j=0;j<colorList.length;j++){ var col=colorList[j]; htmlIdx += makeChip(col.charAt(0).toUpperCase()+col.slice(1), filters.color===col); }
-  idx.innerHTML = htmlIdx;
-  idx.onclick = function(e){
-    var t = e.target; while(t && !t.className.includes('chip')){ t = t.parentElement; }
-    if(!t) return;
-    var label = t.textContent.trim().toLowerCase();
-    if(label==='all'){ filters.color=null; renderCatalog(); buildFilterUI(); return; }
-    filters.color = label;
-    renderCatalog();
-    buildFilterUI();
-    // Jump to first group
-    var anchor = byId('group_'+label);
-    if(anchor){ anchor.scrollIntoView({behavior:'smooth', block:'start'}); }
-  };
-
-  var search = byId('catalogSearch');
-  if(search){ search.oninput = function(){ filters.q = search.value; renderCatalog(); }; }
-  var favT = byId('toggleFavorites'); if(favT){ favT.onchange = function(){ filters.showFavs = favT.checked; renderCatalog(); }; }
-  var selFirst = byId('toggleSelectedFirst'); if(selFirst){ selFirst.onchange = function(){ filters.selectedFirst = selFirst.checked; renderCatalog(); }; }
-}
-
-function isSelected(id){
-  for(var i=0;i<selected.length;i++){ if(selected[i].id===id) return true; } return false;
-}
-
-function renderCatalog(){
-  var root = byId('catalog'); var empty = byId('catalogEmpty');
-  if(!root) return;
-  root.innerHTML='';
-  if(!catalog || !catalog.length){ empty.style.display='block'; return; } else { empty.style.display='none'; }
-
-  // Filter items
-  var arr = []; for(var i=0;i<catalog.length;i++){ if(medMatches(catalog[i])) arr.push(catalog[i]); }
-  // Optionally move selected to the top logical pass
-  if(filters.selectedFirst){
-    arr.sort(function(a,b){ var sa = isSelected(a.id)?0:1; var sb = isSelected(b.id)?0:1; if(sa!==sb) return sa-sb; return 0; });
-  }
-  // Sort by color then name
-  arr = sortByColorThenName(arr);
-
-  // Group by color
-  var gb = groupByColor(arr);
-  for(var gi=0; gi<gb.order.length; gi++){
-    var color = gb.order[gi];
-    if(!gb.groups[color] || gb.groups[color].length===0) continue;
-    var gWrap = document.createElement('div');
-    gWrap.id = 'group_'+color;
-    var head = document.createElement('div'); head.className='groupHead';
-    head.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px">'+svgDot(color, 10)+ ' '+ color.charAt(0).toUpperCase()+color.slice(1) +'</span>';
-    gWrap.appendChild(head);
-
-    for(var k=0;k<gb.groups[color].length;k++){
-      var opt = gb.groups[color][k];
-      var row = document.createElement('div'); row.className='row';
-      var left = document.createElement('div');
-      left.innerHTML = '<div style="font-weight:600">'+opt.name+'</div>' +
-        '<div class="small">'+(opt.medClass||'')+'</div>' +
-        '<div class="small">Cap: <span class="chip"><span class="cap" style="background:'+opt.capColor+'"></span>'+ (getCapLabel(opt)||'—') +'</span></div>';
-
-      var btns = document.createElement('div'); btns.style.display='flex'; btns.style.gap='6px'; btns.style.alignItems='center';
-
-      var fav = document.createElement('button'); fav.className='btn ghost'; fav.title='Favorite';
-      fav.textContent = favorites[opt.id] ? '⭐' : '☆';
-      fav.onclick = (function(opt){ return function(){ favorites[opt.id] = !favorites[opt.id]; saveFavs(); renderCatalog(); }; })(opt);
-
-      var addBtn = document.createElement('button'); addBtn.className='btn dark'; addBtn.textContent = isSelected(opt.id)?'Added':'Add';
-      addBtn.disabled = isSelected(opt.id);
-      addBtn.onclick = (function(opt){ return function(){ addDrop(opt); }; })(opt);
-
-      btns.appendChild(fav); btns.appendChild(addBtn);
-
-      row.appendChild(left); row.appendChild(btns);
-      gWrap.appendChild(row);
-    }
-    root.appendChild(gWrap);
-  }
-}
-
-function renderQR(){
-  var container = byId('qrcode');
-  container.innerHTML='';
-  var payload = getPayload();
-  var enc = encodePayload(payload);
-  if (window.QRCode) { qr = new QRCode(container, {text: enc, width:192, height:192}); }
-  byId('payloadPreview').textContent = 'Payload: ' + enc.slice(0,120) + '…';
-}
-
 function renderSelected(){
   var empty = byId('selectedEmpty');
   var list = byId('selectedList');
@@ -839,11 +782,11 @@ function buildTaperSummaryHTML(payload){
       any = true;
       out += '<div style="margin-top:10px"><div style="font-weight:700;margin-bottom:6px">';
       out += svgDot(r.capColor, 10) + r.name + '</div>';
-      out += '<table style="width:100%;border-collapse:collapse;font-size:15px"><thead><tr>';
+      out += '<table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr>';
       out += '<th style="border:1px solid #e2e8f0;padding:8px;text-align:left;background:#f1f5f9">Week #</th>';
       out += '<th style="border:1px solid #e2e8f0;padding:8px;text-align:left;background:#f1f5f9">Dates</th>';
-      out += '<th style="border:1px solid #e2e8f0;padding:8px;text-align:left;background:#f1f5f9">Times per day</th>';
-      out += '<th style="border:1px solid #e2e8f0;padding:8px;text-align:left;background:#f1f5f9">Times per day</th>';
+      out += '<th style="border:1px solid #e2e8f0;padding:8px;text-align:left;background:#f1f5f9"># per day</th>';
+      out += '<th style="border:1px solid #e2e8f0;padding:8px;text-align:left;background:#f1f5f9">When</th>';
       out += '</tr></thead><tbody>';
       var cursor = new Date(start);
       var weekDays = 0; // counts elapsed days to compute week numbers
@@ -855,8 +798,8 @@ function buildTaperSummaryHTML(payload){
         var weekLabel = (wStart===wEnd) ? ('Week ' + wStart) : ('Weeks ' + wStart + '-' + wEnd);
         out += '<td style="border:1px solid #e2e8f0;padding:8px">'+weekLabel+'</td>';
         out += '<td style="border:1px solid #e2e8f0;padding:8px">'+formatRange(cursor, step.days)+'</td>';
-        out += '<td style="border:1px solid #e2e8f0;padding:8px">'+esc(slotLabelList(step.slots))+'</td>';
         out += '<td style="border:1px solid #e2e8f0;padding:8px">'+(step.slots?step.slots.length:0)+'</td>';
+        out += '<td style="border:1px solid #e2e8f0;padding:8px">'+esc(slotLabelList(step.slots))+'</td>';
         out += '</tr>';
         weekDays += step.days;
         cursor.setDate(cursor.getDate()+step.days);
@@ -866,6 +809,29 @@ function buildTaperSummaryHTML(payload){
   });
   if(!any) return '';
   return '<h2 style="font-size:18px;margin:14px 0 6px">Taper plan (date ranges)</h2>' + out;
+}
+
+function buildPrintableContainer(payload){
+  var container = document.createElement('div');
+  container.style.background = '#fff';
+  container.style.color = '#0f172a';
+  container.style.font = '14px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto';
+  container.style.webkitFontSmoothing = 'antialiased';
+  container.style.textRendering = 'optimizeLegibility';
+  var h = document.createElement('div');
+  h.innerHTML = '<div style="font-size:22px;font-weight:700;margin:0 0 6px">Medication Schedule</div>' +
+                '<div style="color:#475569;font-size:14px">Please wait 3-5 minutes between each eye drop.</div>' +
+                '<div style="color:#475569;font-size:14px">'+ (payload.patientName||'Patient') +' • '+ (new Date(payload.startDate)).toLocaleDateString() +'</div>';
+  container.appendChild(h);
+  var wrap = document.createElement('div');
+  renderPerMedTables(wrap, payload);
+  var taperHTML = buildTaperSummaryHTML(payload);
+  if(taperHTML){ var div = document.createElement('div'); div.innerHTML = taperHTML; wrap.appendChild(div); }
+  container.appendChild(wrap);
+  // normalize tables
+  var tables = container.querySelectorAll('table');
+  for(var ti=0; ti<tables.length; ti++){ var t=tables[ti]; t.style.width='100%'; t.style.tableLayout='fixed'; t.style.borderCollapse='collapse'; var cells=t.querySelectorAll('th,td'); for(var ci=0; ci<cells.length; ci++){ var c=cells[ci]; c.style.padding='8px'; c.style.whiteSpace='normal'; c.style.wordBreak='break-word'; c.style.overflowWrap='anywhere'; } }
+  return container;
 }
 
 function generatePrintHTML(payload){
@@ -918,16 +884,80 @@ function generatePrintHTML(payload){
   return head + body + foot;
 }
 
+
+// ------- PDF preview & export (canvas-based, preserves aspect) -------
+var _pdfCache = { blobUrl: null, pages: 0 };
+function revokePdfCache(){ try{ if(_pdfCache.blobUrl) URL.revokeObjectURL(_pdfCache.blobUrl); }catch(e){} _pdfCache = {blobUrl:null,pages:0}; }
+
+function generatePdfAndPreview(doSave){
+  return new Promise(function(resolve, reject){
+    try {
+      var payload = getPayload();
+      var node = buildPrintableContainer(payload);
+      var host = document.createElement('div'); host.style.position='fixed'; host.style.left='-99999px'; host.style.top='0'; host.style.background='#fff';
+      document.body.appendChild(host); host.appendChild(node);
+
+      var jsPDFCtor = window.jspdf && window.jspdf.jsPDF ? window.jspdf.jsPDF : null;
+      if(!jsPDFCtor || !window.html2canvas){ throw new Error('PDF libs not loaded'); }
+      var pdf = new jsPDFCtor({unit:'pt', format:'letter', compress:true});
+      var pageWpt = pdf.internal.pageSize.getWidth();
+      var pageHpt = pdf.internal.pageSize.getHeight();
+      var margin = 36;
+      var contentWpt = pageWpt - margin*2;
+      var contentHpt = pageHpt - margin*2;
+      var pxPerPt = 96/72;
+      var contentWpx = Math.round(contentWpt * pxPerPt);
+      node.style.width = contentWpx + 'px';
+
+      html2canvas(node, {scale: 2, useCORS: true, backgroundColor: '#ffffff'}).then(function(canvas){
+        var imgWpx = canvas.width, imgHpx = canvas.height;
+        var k = contentWpt / imgWpx; // pt per px (preserve aspect)
+        var pageHeightPx = Math.floor(contentHpt / k);
+
+        var preview = byId('pdfPreview'); if(preview) preview.innerHTML='';
+        var pageCount = 0, y = 0;
+        while(y < imgHpx){
+          var sliceHeight = Math.min(pageHeightPx, imgHpx - y);
+          var pageCanvas = document.createElement('canvas'); pageCanvas.width = imgWpx; pageCanvas.height = sliceHeight;
+          var ctx = pageCanvas.getContext('2d'); ctx.drawImage(canvas, 0, y, imgWpx, sliceHeight, 0, 0, imgWpx, sliceHeight);
+          var imgData = pageCanvas.toDataURL('image/png');
+          if(pageCount>0) pdf.addPage();
+          var sliceHeightPt = sliceHeight * k;
+          pdf.addImage(imgData, 'PNG', margin, margin, contentWpt, sliceHeightPt);
+
+          if(preview){ var img=document.createElement('img'); img.src=imgData; img.style.width='100%'; img.style.height='auto'; img.style.border='1px solid var(--border)'; img.style.borderRadius='8px'; preview.appendChild(img); }
+
+          y += sliceHeight; pageCount++;
+        }
+        revokePdfCache();
+        var blob = pdf.output('blob'); var url = URL.createObjectURL(blob); _pdfCache.blobUrl = url; _pdfCache.pages = pageCount;
+        var meta = byId('pdfMeta'); if(meta) meta.textContent = 'Preview ready: '+pageCount+' page'+(pageCount>1?'s':'')+'.';
+        if(doSave){ var name=(payload.patientName||'patient').replace(/[^a-z0-9_\-]+/ig,'_'); var date=(new Date(payload.startDate)).toISOString().slice(0,10); pdf.save('schedule_'+name+'_'+date+'.pdf'); }
+        document.body.removeChild(host);
+        resolve({pages:pageCount,url:_pdfCache.blobUrl});
+      }).catch(function(err){ document.body.removeChild(host); reject(err); });
+    } catch(e){ reject(e); }
+  });
+}
+byId('refreshPreview').onclick = function(){ var b=this; b.disabled=true; b.textContent='Rendering…'; generatePdfAndPreview(false).then(function(){ b.disabled=false; b.textContent='Refresh preview'; }).catch(function(err){ b.disabled=false; b.textContent='Refresh preview'; alert('Preview failed: '+(err&&err.message?err.message:err)); }); };
+byId('downloadPdfBtn').onclick = function(){ if(_pdfCache.blobUrl){ var a=document.createElement('a'); a.href=_pdfCache.blobUrl; a.download='schedule.pdf'; a.click(); } else { generatePdfAndPreview(true).catch(function(err){ alert('Download failed: '+(err&&err.message?err.message:err)); }); } };
+
 byId('printBtn').onclick = function () {
-  var payload = getPayload();
-  var html = generatePrintHTML(payload);
-  var w = window.open('', '_blank', 'noopener,noreferrer,width=1000,height=800');
-  if(w){ w.document.open(); w.document.write(html); w.document.close(); } else {
-    var blob = new Blob([html], {type:'text/html'});
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a'); a.href=url; a.download='schedule.html'; a.click(); URL.revokeObjectURL(url);
-    alert('Popup was blocked. Downloaded schedule.html instead—open it to print.');
-  }
+  // Reuse same pipeline but save immediately
+  generatePdfAndPreview(true).catch(function(err){
+    // Fallback to HTML window if PDF fails
+    try {
+      var payload = getPayload();
+      var html = generatePrintHTML(payload);
+      var w = window.open('', '_blank', 'noopener,noreferrer,width=1000,height=800');
+      if(w){ w.document.open(); w.document.write(html); w.document.close(); }
+      else {
+        var blob = new Blob([html], {type:'text/html'}); var url = URL.createObjectURL(blob);
+        var a = document.createElement('a'); a.href=url; a.download='schedule.html'; a.click(); URL.revokeObjectURL(url);
+        alert('Popup was blocked. Downloaded schedule.html instead—open it to print.');
+      }
+    } catch(e2){ alert('Unable to generate PDF or open print view: ' + (err && err.message ? err.message : err)); }
+  });
 };
 
 // ---------------- Events ----------------
