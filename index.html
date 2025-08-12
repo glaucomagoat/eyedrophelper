@@ -58,7 +58,7 @@
     </div>
     <div class="actions">
       <button class="btn dark" id="downloadJsonBtn">Download JSON</button>
-      <button class="btn primary" id="printBtn">Print schedule (PDF)</button>
+      <button class="btn primary" id="printBtnEn">Print PDF (English)</button><button class="btn dark" id="printBtnEs">Print PDF (Spanish)</button>
     </div>
   </div>
 </header>
@@ -140,7 +140,7 @@
 <section class="container" style="margin-top:12px">
   <div class="card">
     <h2>PDF Preview</h2>
-    <div class="small" style="margin-bottom:8px">Preview the PDF exactly as it will export.</div>
+    <div class="small" style="margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px"><span>Preview the PDF exactly as it will export.</span><div id="langToggle" class="actions"><button class="btn ghost" id="toggleEN" aria-pressed="true">EN</button><button class="btn ghost" id="toggleES" aria-pressed="false">ES</button></div></div>
     <div id="pdfPreview" style="height:420px; overflow:auto; border:1px solid var(--border); border-radius:12px; background:#fff; padding:8px; display:flex; gap:12px; flex-direction:column"></div>
     <div id="pdfMeta" class="small" style="margin-top:8px;color:var(--muted)"></div>
     <div class="actions" style="margin-top:10px">
@@ -201,6 +201,348 @@ var SLOT_LABEL = {
   bedtime: 'Bedtime 🛏️'
 };
 var SLOT_ORDER = ['morning','midmorning','noon','lateafternoon','evening','bedtime'];
+
+
+// ===== Spanish helpers + preview rendering + notes translation =====
+var PREVIEW_LANG = 'en';
+
+var SLOT_LABEL_ES = {
+  morning: 'Mañana ⏰',
+  midmorning: 'Media mañana',
+  noon: 'Mediodía ☀️',
+  lateafternoon: 'Tarde',
+  evening: 'Noche 🌙',
+  bedtime: 'Antes de dormir 🛏️'
+};
+
+function toAmPm_ES(hhmm){
+  if(!hhmm) return '';
+  var p = (hhmm+'').split(':');
+  var h = parseInt(p[0],10), m = p[1]||'00';
+  var suf = h>=12 ? 'p. m.' : 'a. m.';
+  var h12 = h%12; if(h12===0) h12=12;
+  return h12+':'+m+' '+suf;
+}
+function eyeFull_ES(code){
+  var raw = String(code||'OU');
+  var c = raw.toUpperCase();
+  if(raw==='1pill') return '1 tableta (250 mg)';
+  if(raw==='2pills') return '2 tabletas (500 mg)';
+  if(c==='OD') return 'Ojo derecho';
+  if(c==='OS') return 'Ojo izquierdo';
+  return 'Ambos ojos';
+}
+var COLOR_ES = {
+  teal:'verde azulado',
+  yellow:'amarillo',
+  purple:'morado',
+  orange:'naranja',
+  blue:'azul',
+  lightgreen:'verde claro',
+  white:'blanco',
+  pink:'rosa',
+  gray:'gris',
+  brown:'marrón',
+  black:'negro',
+  tan:'beige'
+};
+function getCapLabel_ES(obj){
+  if(obj.capLabel){
+    if(String(obj.capLabel).toLowerCase()==='tube') return 'Tubo';
+    return obj.capLabel;
+  }
+  var n = String(obj.capColor||'').toLowerCase();
+  return (COLOR_ES[n] || n);
+}
+
+// Lightweight English→Spanish translator for Notes (phrase+word map).
+function translateNotesToSpanish(s){
+  if(!s) return '';
+  var txt = String(s);
+  // Phrase-level replacements first (case-insensitive)
+  var phrases = [
+    [/wait\s*3[\-\u2013]?\s*5\s*minutes\s*between\s*(each\s*)?(eye\s*)?drops?/gi, 'Espere 3–5 minutos entre cada gota'],
+    [/take with meals/gi, 'Tómelo con las comidas'],
+    [/stay hydrated/gi, 'Manténgase hidratado'],
+    [/can cause increased urination/gi, 'Puede causar aumento de la micción'],
+    [/tingling in (the )?fingers\/toes/gi, 'hormigueo en los dedos de las manos y los pies'],
+    [/altered taste/gi, 'alteración del gusto'],
+    [/upset stomach/gi, 'malestar estomacal'],
+    [/every other day/gi, 'día por medio'],
+    [/every (\d+)\s*hours?/gi, 'cada $1 horas'],
+    [/every (\d+)\s*minutes?/gi, 'cada $1 minutos'],
+    [/before bed(time)?/gi, 'antes de dormir'],
+    [/(right|left) eye only/gi, function(m){ return /right/i.test(m)?'solo ojo derecho':'solo ojo izquierdo'; }],
+    [/both eyes/gi, 'ambos ojos'],
+    [/do not touch (the )?tip to eye/gi, 'no toque la punta con el ojo'],
+    [/shake well/gi, 'agite bien'],
+    [/refrigerate/gi, 'refrigerar'],
+    [/contact lenses/gi, 'lentes de contacto'],
+    [/remove contacts before use/gi, 'retire los lentes antes de usar'],
+    [/use as needed/gi, 'usar según sea necesario']
+  ];
+  phrases.forEach(function(p){ txt = txt.replace(p[0], p[1]); });
+
+  // Word-level replacements
+  var dict = {
+    'wait':'espere','minute':'minuto','minutes':'minutos','hour':'hora','hours':'horas',
+    'between':'entre','each':'cada','drop':'gota','drops':'gotas',
+    'eye':'ojo','eyes':'ojos','right':'derecho','left':'izquierdo','both':'ambos',
+    'with':'con','meals':'comidas','food':'alimentos','water':'agua',
+    'before':'antes','after':'después','bedtime':'dormir','morning':'mañana','noon':'mediodía','evening':'noche',
+    'pain':'dolor','redness':'enrojecimiento','blur':'visión borrosa','vision':'visión',
+    'contact':'contacto','lenses':'lentes','use':'usar','needed':'necesario',
+    'every':'cada','day':'día','days':'días','week':'semana','weeks':'semanas',
+    'increase':'aumento','urination':'micción','tingling':'hormigueo','fingers':'dedos','toes':'pies',
+    'taste':'gusto','stomach':'estómago','nausea':'náuseas','headache':'dolor de cabeza',
+    'withhold':'suspender','resume':'reanudar','if':'si','symptoms':'síntomas','worsen':'empeoran',
+    'avoid':'evite','driving':'conducir','after instillation':'después de la instilación'
+  };
+  // Replace standalone words while preserving basic capitalization
+  txt = txt.replace(/\b([A-Za-z]+)\b/g, function(_, w){
+    var lower = w.toLowerCase();
+    if(dict[lower]){
+      var rep = dict[lower];
+      if(w[0]===w[0].toUpperCase()){
+        // Capitalize replacement
+        rep = rep.charAt(0).toUpperCase() + rep.slice(1);
+      }
+      return rep;
+    }
+    return w;
+  });
+
+  // Normalize spaces
+  txt = txt.replace(/\s+/g,' ').trim();
+  // Ensure ending period if original had one
+  return txt;
+}
+
+function renderPerMedTables_ES(wrapper, payload, opts){
+  opts = opts || {}; var hidePatientLine = !!opts.hidePatientLine;
+  var start = new Date(payload.startDate);
+  var dayIndex = 0;
+  var dayRegs = activeSlotsForDay(payload.regimen, dayIndex);
+  var regsSorted = sortByColorThenName(dayRegs);
+  var slotsAll = activeSlotsSet(dayRegs);
+  var sorted = sortSlotsChrono(slotsAll, payload.times);
+  var slotsChunks = chunk(sorted, 4);
+
+  var top = document.createElement('div');
+  top.innerHTML = '<div style="font-weight:700">Vista previa del horario (un día)</div>'+
+    '<div class="small">Espere 3–5 minutos entre cada gota.</div>'+
+    (hidePatientLine ? '' : '<div class="small">'+(payload.patientName||'Paciente')+' • '+fmtDate(start)+'</div>');
+  wrapper.appendChild(top);
+
+  for(var c=0;c<slotsChunks.length;c++){
+    var subset = slotsChunks[c];
+    var table = document.createElement('table');
+    var thead = document.createElement('thead');
+    var trh = document.createElement('tr');
+    var thMed = document.createElement('th'); thMed.textContent = 'Medicamento'; trh.appendChild(thMed);
+    subset.forEach(function(slot){
+      var th = document.createElement('th'); th.innerHTML = SLOT_LABEL_ES[slot] + '<div class="small">' + toAmPm_ES(payload.times[slot]) + '</div>';
+      trh.appendChild(th);
+    });
+    thead.appendChild(trh); table.appendChild(thead);
+    var tbody = document.createElement('tbody');
+
+    regsSorted.forEach(function(r){
+      var tr = document.createElement('tr');
+      var tdMed = document.createElement('td');
+      var esNotes = translateNotesToSpanish(r.notes||'');
+      tdMed.innerHTML = svgDot(r.capColor, 10) + ' ' + r.name + ' <span class=\"small\">('+(getCapLabel_ES(r)||'—')+', '+eyeFull_ES(r.eye)+')</span>';
+      if((r.notes||'').trim()){
+        var noteEl=document.createElement('div');
+        noteEl.className='small'; noteEl.style.color='#475569';
+        noteEl.textContent= esNotes; tdMed.appendChild(noteEl);
+      }
+      tr.appendChild(tdMed);
+      subset.forEach(function(slot){
+        var td = document.createElement('td');
+        if(slotHas(r.slots||[], slot)){
+          td.innerHTML = svgDot(r.capColor, 10) + ' ' + (getCapLabel_ES(r)||'') + ' — ' + eyeFull_ES(r.eye);
+        } else {
+          td.innerHTML = '<span class="small">—</span>';
+        }
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrapper.appendChild(table);
+    if(c < slotsChunks.length-1){
+      var sep = document.createElement('div'); sep.className='small'; sep.style.margin='6px 0 12px'; sep.textContent='Continúa →';
+      wrapper.appendChild(sep);
+    }
+  }
+}
+
+function buildTaperSummaryHTML_ES(payload){
+  var start = new Date(payload.startDate);
+  var times = payload.times;
+  function esc(s){ return String(s||'').replace(/[&<>]/g, function(m){ return ({'&':'&amp;','<':'&gt;'}[m]); }); }
+  function formatRange(from, days){
+    var a = new Date(from);
+    var b = new Date(from); b.setDate(b.getDate()+days-1);
+    return esc(a.toLocaleDateString()) + ' – ' + esc(b.toLocaleDateString());
+  }
+  function slotLabelList(slots){
+    if(!slots||!slots.length) return '—';
+    var arr = []; for(var i=0;i<slots.length;i++){ var s=slots[i]; arr.push(SLOT_LABEL_ES[s] + ' (' + toAmPm_ES(times[s]) + ')'); }
+    return arr.join(', ');
+  }
+  var out = ''; var any = false;
+  payload.regimen.forEach(function(r){
+    if(r.taper && r.taper.enabled && r.taper.steps && r.taper.steps.length){
+      any = true;
+      out += '<div style="margin-top:10px"><div style="font-weight:700;margin-bottom:6px">';
+      out += svgDot(r.capColor, 10) + r.name + ' <span class=\"small\">(' + eyeFull_ES(r.eye) + ')</span></div>';
+      out += '<table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr>';
+      out += '<th style="border:1px solid #e2e8f0;padding:8px;text-align:left;background:#f1f5f9">Semana</th>';
+      out += '<th style="border:1px solid #e2e8f0;padding:8px;text-align:left;background:#f1f5f9">Fechas</th>';
+      out += '<th style="border:1px solid #e2e8f0;padding:8px;text-align:left;background:#f1f5f9">Nº al día</th>';
+      out += '<th style="border:1px solid #e2e8f0;padding:8px;text-align:left;background:#f1f5f9">Cuándo</th>';
+      out += '</tr></thead><tbody>';
+      var cursor = new Date(start);
+      var weekDays = 0;
+      for(var i=0;i<r.taper.steps.length;i++){
+        var step = r.taper.steps[i];
+        out += '<tr>';
+        var wStart = Math.floor(weekDays/7)+1;
+        var wEnd = Math.floor((weekDays + step.days - 1)/7)+1;
+        var weekLabel = (wStart===wEnd) ? ('Semana ' + wStart) : ('Semanas ' + wStart + '-' + wEnd);
+        out += '<td style="border:1px solid #e2e8f0;padding:8px">'+weekLabel+'</td>';
+        out += '<td style="border:1px solid #e2e8f0;padding:8px">'+formatRange(cursor, step.days)+'</td>';
+        out += '<td style="border:1px solid #e2e8f0;padding:8px">'+(step.slots?step.slots.length:0)+'</td>';
+        out += '<td style="border:1px solid #e2e8f0;padding:8px">'+esc(slotLabelList(step.slots))+'</td>';
+        out += '</tr>';
+        weekDays += step.days;
+        cursor.setDate(cursor.getDate()+step.days);
+      }
+      out += '</tbody></table></div>';
+    }
+  });
+  if(!any) return '';
+  return '<h2 style="font-size:18px;margin:14px 0 6px">Plan de reducción (rangos de fechas)</h2>' + out;
+}
+
+function generatePrintHTML_ES(payload){
+  function esc(s){ return String(s||'').replace(/[&<>]/g, function(m){ return ({'&':'&amp;','<':'&gt;'}[m]); }); }
+  var start = new Date(payload.startDate);
+  var head = '<!doctype html><html><head><meta charset="utf-8"><title>Horario de Medicación</title>' +
+  '<style>'+cssForcePrintColors()+' :root{--text:#0f172a;--muted:#475569;--border:#e2e8f0}*{box-sizing:border-box} body{margin:28px;color:var(--text);font:17px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}h1{font-size:22px;margin:0 0 6px} .small{color:var(--muted);font-size:14px}table{width:100%;border-collapse:collapse;font-size:16px;margin-top:10px}th,td{border:1px solid var(--border);padding:10px;vertical-align:top;text-align:left}thead th{background:#f1f5f9}.entry{display:flex;align-items:center;gap:8px;margin:3px 0}.legend{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 12px}.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:3px 8px}</style></head><body>';
+  var body = '';
+  body += '<h1>Horario de Medicación</h1>';
+  body += '<div class="small">Espere 3–5 minutos entre cada gota.</div>';
+  body += '<div class="small">' + esc(payload.patientName||'Paciente') + ' • ' + esc(start.toLocaleDateString()) + '</div>';
+
+  var dayIndex = 0;
+  var dayRegs = activeSlotsForDay(payload.regimen, dayIndex);
+  var regsSorted = sortByColorThenName(dayRegs);
+  var slotsAll = activeSlotsSet(dayRegs);
+  var sorted = sortSlotsChrono(slotsAll, payload.times);
+  var slotsChunks = chunk(sorted, 4);
+
+  for(var c=0;c<slotsChunks.length;c++){
+    var subset = slotsChunks[c];
+    body += '<table><thead><tr><th>Medicamento</th>';
+    for(var i=0;i<subset.length;i++){
+      var slot = subset[i];
+      body += '<th>'+SLOT_LABEL_ES[slot]+'<div class="small">'+esc(toAmPm_ES(payload.times[slot]))+'</div></th>';
+    }
+    body += '</tr></thead><tbody>';
+    for(var r=0;r<regsSorted.length;r++){
+      var reg = regsSorted[r];
+      var esNotes = translateNotesToSpanish(reg.notes||'');
+      body += '<tr><td>'+svgDot(reg.capColor, 12)+' <span>'+esc(reg.name)+'</span> <span class="small">('+esc(getCapLabel_ES(reg)||'—')+', '+esc(eyeFull_ES(reg.eye))+')</span>' + (reg.notes && reg.notes.trim() ? ('<div class="small">'+esc(esNotes)+'</div>') : '') + '</td>';
+      for(var i=0;i<subset.length;i++){
+        var slot2 = subset[i];
+        if(slotHas(reg.slots||[], slot2)){
+          body += '<td>'+svgDot(reg.capColor, 12)+' '+esc(getCapLabel_ES(reg)||'')+' — '+esc(eyeFull_ES(reg.eye))+'</td>';
+        } else {
+          body += '<td><span class="small">—</span></td>';
+        }
+      }
+      body += '</tr>';
+    }
+    body += '</tbody></table>';
+    if(c < slotsChunks.length-1){ body += '<div class="small" style="margin:6px 0 12px">Continúa →</div>'; }
+  }
+
+  body += buildTaperSummaryHTML_ES(payload);
+  var foot = '<scr' + 'ipt>window.onload=function(){window.print(); setTimeout(function(){window.close();}, 200);};</scr' + 'ipt></body></html>';
+  return head + body + foot;
+}
+
+var _pdfCacheES = { blobUrl: null, pages: 0 };
+function generatePdfAndPreview_ES(doSave){
+  return new Promise(function(resolve, reject){
+    try {
+      var payload = getPayload();
+      var node = (function(){
+        var container = document.createElement('div');
+        container.style.background = '#fff';
+        container.style.color = '#0f172a';
+        container.style.font = '14px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto';
+        var nameHeader = document.createElement('div');
+        nameHeader.style.fontSize = '22pt';
+        nameHeader.style.fontWeight = '700';
+        nameHeader.style.margin = '0 0 10px 0';
+        nameHeader.textContent = payload.patientName || '';
+        if(nameHeader.textContent){ container.appendChild(nameHeader); }
+        var wrap = document.createElement('div');
+        renderPerMedTables_ES(wrap, payload, {hidePatientLine:true});
+        var taperHTML = buildTaperSummaryHTML_ES(payload);
+        if(taperHTML){ var div = document.createElement('div'); div.innerHTML = taperHTML; wrap.appendChild(div); }
+        container.appendChild(wrap);
+        var tables = container.querySelectorAll('table');
+        for(var ti=0; ti<tables.length; ti++){ var t=tables[ti]; t.style.width='100%'; t.style.tableLayout='fixed'; t.style.borderCollapse='collapse'; var cells=t.querySelectorAll('th,td'); for(var ci=0; ci<cells.length; ci++){ var c=cells[ci]; c.style.padding='8px'; c.style.whiteSpace='normal'; c.style.wordBreak='break-word'; c.style.overflowWrap='anywhere'; } }
+        return container;
+      })();
+      var host = document.createElement('div'); host.style.position='fixed'; host.style.left='-99999px'; host.style.top='0'; host.style.background='#fff';
+      document.body.appendChild(host); host.appendChild(node);
+
+      var jsPDFCtor = window.jspdf && window.jspdf.jsPDF ? window.jspdf.jsPDF : null;
+      if(!jsPDFCtor || !window.html2canvas){ throw new Error('PDF libs not loaded'); }
+      var pdf = new jsPDFCtor({unit:'pt', format:'letter', compress:true});
+      var pageWpt = pdf.internal.pageSize.getWidth();
+      var pageHpt = pdf.internal.pageSize.getHeight();
+      var margin = 36;
+      var contentWpt = pageWpt - margin*2;
+      var contentHpt = pageHpt - margin*2;
+      var pxPerPt = 96/72;
+      var contentWpx = Math.round(contentWpt * pxPerPt);
+      node.style.width = contentWpx + 'px';
+
+      html2canvas(node, {scale: 2, useCORS: true, backgroundColor: '#ffffff'}).then(function(canvas){
+        var imgWpx = canvas.width, imgHpx = canvas.height;
+        var k = contentWpt / imgWpx;
+        var pageHeightPx = Math.floor(contentHpt / k);
+        var pageCount = 0, y = 0;
+        while(y < imgHpx){
+          var sliceHeight = Math.min(pageHeightPx, imgHpx - y);
+          var pageCanvas = document.createElement('canvas'); pageCanvas.width = imgWpx; pageCanvas.height = sliceHeight;
+          var ctx = pageCanvas.getContext('2d'); ctx.drawImage(canvas, 0, y, imgWpx, sliceHeight, 0, 0, imgWpx, sliceHeight);
+          var imgData = pageCanvas.toDataURL('image/png');
+          if(pageCount>0) pdf.addPage();
+          var sliceHeightPt = sliceHeight * k;
+          pdf.addImage(imgData, 'PNG', margin, margin, contentWpt, sliceHeightPt);
+          y += sliceHeight; pageCount++;
+        }
+        try{ if(_pdfCacheES.blobUrl) URL.revokeObjectURL(_pdfCacheES.blobUrl);}catch(e){}
+        var blob = pdf.output('blob'); var url = URL.createObjectURL(blob); _pdfCacheES.blobUrl = url; _pdfCacheES.pages = pageCount;
+        if(doSave){
+          var name=(payload.patientName||'paciente').replace(/[^a-z0-9_\-]+/ig,'_');
+          var date=(new Date(payload.startDate)).toISOString().slice(0,10);
+          pdf.save('horario_'+name+'_'+date+'.pdf');
+        }
+        document.body.removeChild(host);
+        resolve({pages:pageCount,url:_pdfCacheES.blobUrl});
+      }).catch(function(err){ document.body.removeChild(host); reject(err); });
+    } catch(e){ reject(e); }
+  });
+}
 
 // custom color order for grouping
 var COLOR_ORDER = ['teal','yellow','purple','orange','blue','lightgreen','white','pink','gray','brown'];
@@ -281,6 +623,14 @@ var DEFAULT_DROPS = [
   { id:'ofloxacin', name:'Ocuflox (Ofloxacin)', capColor:'tan', medClass:'Antibiotic', freqPresets:[
       {label:'QID (AM/Noon/PM/Bedtime)',slots:['morning','noon','evening','bedtime']}
     ]}
+,
+  { id:'muro', name:'Muro 128 (Sodium Chloride 5%)', capColor:'white', medClass:'Cornea', freqPresets:[
+      {label:'QID',slots:['morning','noon','evening','bedtime']},
+      {label:'QHS',slots:['bedtime']}
+    ]},
+  { id:'durezol', name:'Durezol (Difluprednate)', capColor:'pink', medClass:'Steroid', freqPresets:[
+      {label:'QID',slots:['morning','noon','evening','bedtime']}
+    ]}
 ];
 var catalog = DEFAULT_DROPS.slice();
 var selected = [];
@@ -288,6 +638,8 @@ var qr = null;
 
 // ---------------- Helpers ----------------
 function byId(id){ return document.getElementById(id); }
+function setOnclickIfPresent(id, handler){ var el = byId(id); if(el) el.onclick = handler; }
+function makeUid(){ return 'u'+Math.random().toString(36).slice(2)+Date.now().toString(36); }
 function fmtDate(dt){ return dt.toLocaleDateString(); }
 function encodePayload(obj){
   var minified = JSON.stringify(obj);
@@ -318,7 +670,11 @@ function svgDot(color, size){
 function cssForcePrintColors(){ return '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}'; }
 
 function eyeFull(code){
-  var c = String(code||'OU').toUpperCase();
+  var raw = String(code||'OU');
+  var c = raw.toUpperCase();
+  // Special handling for Diamox dosage selections stored in the 'eye' field
+  if(raw === '1pill') return '1 Pill (250 mg)';
+  if(raw === '2pills') return '2 Pills (500 mg)';
   if(c==='OD') return 'Right Eye';
   if(c==='OS') return 'Left Eye';
   return 'Both Eyes';
@@ -420,7 +776,7 @@ function isSelected(id){ for(var i=0;i<selected.length;i++){ if(selected[i].id==
       left.innerHTML = '<div style="font-weight:600">'+opt.name+'</div>' + '<div class="small">'+(opt.medClass||'')+'</div>' + '<div class="small">Cap: <span class="chip"><span class="cap" style="background:'+opt.capColor+'"></span>'+ (getCapLabel(opt)||'—') +'</span></div>';
       var btns=document.createElement('div'); btns.style.display='flex'; btns.style.gap='6px'; btns.style.alignItems='center';
       var fav=document.createElement('button'); fav.className='btn ghost'; fav.title='Favorite'; fav.textContent = favorites[opt.id] ? '⭐' : '☆'; fav.onclick=(function(opt){ return function(){ favorites[opt.id]=!favorites[opt.id]; saveFavs(); renderCatalog(); }; })(opt);
-      var addBtn=document.createElement('button'); addBtn.className='btn dark'; addBtn.textContent = isSelected(opt.id)?'Added':'Add'; addBtn.disabled=isSelected(opt.id); addBtn.onclick=(function(opt){ return function(){ addDrop(opt); }; })(opt);
+      var addBtn=document.createElement('button'); addBtn.className='btn dark'; addBtn.textContent = 'Add'; addBtn.disabled=false; addBtn.onclick=(function(opt){ return function(){ addDrop(opt); }; })(opt);
       btns.appendChild(fav); btns.appendChild(addBtn);
       row.appendChild(left); row.appendChild(btns); gWrap.appendChild(row);
     }
@@ -429,63 +785,65 @@ function isSelected(id){ for(var i=0;i<selected.length;i++){ if(selected[i].id==
 }
 
 function addDrop(opt){
-  for(var i=0;i<selected.length;i++){ if(selected[i].id===opt.id) return; }
   var slots = [];
   if(opt.freqPresets && opt.freqPresets.length && opt.freqPresets[0].slots){
     slots = opt.freqPresets[0].slots.slice();
   }
-  selected.push({id:opt.id,name:opt.name,capColor:opt.capColor,capLabel:opt.capLabel,eye:'OU',slots:slots,notes:'', taper:{enabled:false,steps:[]}, medClass:opt.medClass});
+  var defaultNotes = (opt.id==='diamox' ? 'Take with meals. Stay hydrated. Can cause increased urination, tingling in fingers/toes, altered taste, upset stomach.' : '');
+  var defaultEye = (opt.id==='diamox' ? '1pill' : 'OU');
+  selected.push({uid: makeUid(), id: opt.id, name: opt.name, capColor: opt.capColor, capLabel: opt.capLabel, eye: defaultEye, slots: slots, notes: defaultNotes, taper:{enabled:false,steps:[]}, medClass:opt.medClass});
   renderSelected();
 }
-function removeDrop(id){
-  var out=[]; for(var i=0;i<selected.length;i++){ if(selected[i].id!==id) out.push(selected[i]); }
+function removeDrop(uid){
+  var out=[]; for(var i=0;i<selected.length;i++){ if(selected[i].uid!==uid) out.push(selected[i]); }
   selected = out; renderSelected();
 }
-function toggleSlot(id,slot){
+function toggleSlot(uid,slot){
   selected = selected.map(function(s){
-    if(s.id!==id) return s;
+    if(s.uid!==uid) return s;
     var has = slotHas(s.slots, slot);
     var next = has ? s.slots.filter(function(t){ return t!==slot; }) : s.slots.concat([slot]);
     return Object.assign({}, s, {slots: next});
   });
   renderSelected();
 }
-function applyPreset(id,slots){
-  selected = selected.map(function(s){ return s.id===id ? Object.assign({}, s, {slots: slots.slice()}) : s; });
+function applyPreset(uid,slots){
+  selected = selected.map(function(s){ return s.uid===uid ? Object.assign({}, s, {slots: slots.slice()}) : s; });
   renderSelected();
 }
-function updateNotes(id,notes){
-  selected = selected.map(function(s){ return s.id===id ? Object.assign({}, s, {notes:notes}) : s; });
+function updateNotes(uid,notes){
+  selected = selected.map(function(s){ return s.uid===uid ? Object.assign({}, s, {notes:notes}) : s; });
 }
-function setTaperEnabled(id,enabled){
-  if(enabled){
-    if(id==='pred_acetate'){ addCommonTaper(id,'pred_4422'); return; }
-    if(id==='ketorolac'){ addCommonTaper(id,'acular_440'); return; }
+function setTaperEnabled(uid,enabled){
+  var med = null; for(var i=0;i<selected.length;i++){ if(selected[i].uid===uid){ med = selected[i]; break; } }
+  if(enabled && med){
+    if(med.id==='pred_acetate' || med.id==='durezol'){ addCommonTaper(uid,'pred_4422'); return; }
+    if(med.id==='ketorolac'){ addCommonTaper(uid,'acular_440'); return; }
   }
   selected = selected.map(function(s){
-    return s.id===id ? Object.assign({}, s, {taper: Object.assign({}, s.taper||{}, {enabled:enabled})}) : s;
+    return s.uid===uid ? Object.assign({}, s, {taper: Object.assign({}, s.taper||{}, {enabled:enabled})}) : s;
   });
   renderSelected();
 }
-function addTaperStep(id, step){
+function addTaperStep(uid, step){
   selected = selected.map(function(s){
-    if(s.id!==id) return s;
+    if(s.uid!==uid) return s;
     var steps = (s.taper && s.taper.steps) ? s.taper.steps.slice() : [];
     steps.push(step);
     return Object.assign({}, s, {taper: Object.assign({}, s.taper||{}, {steps: steps})});
   });
   renderSelected();
 }
-function removeTaperStep(id, idx){
+function removeTaperStep(uid, idx){
   selected = selected.map(function(s){
-    if(s.id!==id) return s;
+    if(s.uid!==uid) return s;
     var steps = (s.taper && s.taper.steps) ? s.taper.steps.slice() : [];
     steps.splice(idx,1);
     return Object.assign({}, s, {taper: Object.assign({}, s.taper||{}, {steps: steps})});
   });
   renderSelected();
 }
-function addCommonTaper(id, type){
+function addCommonTaper(uid, type){
   var presets = {
     'pred_4422': [
       {days:14, slots:['morning','noon','evening','bedtime']},
@@ -503,7 +861,7 @@ function addCommonTaper(id, type){
   };
   var steps = presets[type] || [];
   selected = selected.map(function(s){
-    return s.id===id ? Object.assign({}, s, {taper:{enabled:true, steps: steps.slice()}}) : s;
+    return s.uid===uid ? Object.assign({}, s, {taper:{enabled:true, steps: steps.slice()}}) : s;
   });
   renderSelected();
 }
@@ -573,7 +931,7 @@ function renderSelected(){
       '<div><div style="font-weight:600">'+s.name+'</div><div class="small">Cap: '+(getCapLabel(s)||'—')+'</div></div>' +
     '</div>';
     var remove = document.createElement('button'); remove.className='btn ghost'; remove.textContent='Remove';
-    remove.onclick=function(){ removeDrop(s.id); };
+    remove.onclick=function(){ removeDrop(s.uid); };
     top.appendChild(remove);
     wrap.appendChild(top);
 
@@ -582,14 +940,14 @@ function renderSelected(){
       var sw = document.createElement('div'); sw.className='switch'; sw.style.marginTop='8px';
       var cb = document.createElement('input'); cb.type='checkbox'; cb.checked = !!(s.taper && s.taper.enabled);
       var lbl = document.createElement('span'); lbl.textContent='Use taper schedule';
-      cb.onchange=function(){ setTaperEnabled(s.id, cb.checked); };
+      cb.onchange=function(){ setTaperEnabled(s.uid, cb.checked); };
       sw.appendChild(cb); sw.appendChild(lbl); wrap.appendChild(sw);
     }
 
     if(s.taper && s.taper.enabled){
       var help = document.createElement('div'); help.className='small'; help.textContent='Define steps (days + times per day).'; help.style.marginTop='6px'; wrap.appendChild(help);
       var presets = document.createElement('div'); presets.style.marginTop='6px'; presets.style.display='flex'; presets.style.flexWrap='wrap'; presets.style.gap='8px';
-      if(s.id==='pred_acetate'){
+      if(s.id==='pred_acetate' || s.id==='durezol'){
         var b1 = document.createElement('button'); b1.className='slot-btn'; b1.textContent='4/4/2/2';
         b1.onclick=function(){ addCommonTaper(s.id,'pred_4422'); };
         var b2 = document.createElement('button'); b2.className='slot-btn'; b2.textContent='4/3/2/1';
@@ -608,7 +966,7 @@ function renderSelected(){
         var head = document.createElement('div'); head.style.display='flex'; head.style.justifyContent='space-between'; head.style.alignItems='center';
         head.innerHTML = '<div style="font-weight:600">Step '+(idx+1)+': '+step.days+' day(s)</div>';
         var del = document.createElement('button'); del.className='btn ghost'; del.textContent='Remove step';
-        del.onclick=function(){ removeTaperStep(s.id, idx); };
+        del.onclick=function(){ removeTaperStep(s.uid, idx); };
         head.appendChild(del); row.appendChild(head);
 
         var daysLab = document.createElement('label'); daysLab.textContent='Days';
@@ -616,7 +974,7 @@ function renderSelected(){
         daysInput.oninput=function(e){
           var val = Math.max(1, parseInt(e.target.value||'1',10));
           selected = selected.map(function(x){
-            if(x.id!==s.id) return x;
+            if(x.uid!==s.uid) return x;
             var steps = x.taper.steps.slice(); steps[idx] = Object.assign({}, steps[idx], {days: val});
             return Object.assign({}, x, {taper:Object.assign({}, x.taper, {steps:steps})});
           });
@@ -631,7 +989,7 @@ function renderSelected(){
           b.className = 'slot-btn ' + (slotHas(step.slots, slot)?'active':''); b.textContent = SLOT_LABEL[slot];
           b.onclick=function(){
             selected = selected.map(function(x){
-              if(x.id!==s.id) return x;
+              if(x.uid!==s.uid) return x;
               var steps = x.taper.steps.slice();
               var has = slotHas(steps[idx].slots, slot);
               steps[idx] = Object.assign({}, steps[idx], { slots: has ? steps[idx].slots.filter(function(t){return t!==slot;}) : steps[idx].slots.concat([slot]) });
@@ -654,7 +1012,7 @@ function renderSelected(){
       Object.keys(SLOT_LABEL).forEach(function(slot){
         var b2 = document.createElement('button');
         b2.className = 'slot-btn ' + (slotHas(s.slots, slot)?'active':''); b2.textContent = SLOT_LABEL[slot];
-        b2.onclick=function(){ toggleSlot(s.id, slot); };
+        b2.onclick=function(){ toggleSlot(s.uid, slot); };
         slotsDiv2.appendChild(b2);
       });
       wrap.appendChild(slotsDiv2);
@@ -664,7 +1022,7 @@ function renderSelected(){
         var presets2 = document.createElement('div'); presets2.style.marginTop='8px'; presets2.style.display='flex'; presets2.style.flexWrap='wrap'; presets2.style.gap='8px';
         opt.freqPresets.forEach(function(p){
           var pb = document.createElement('button'); pb.className='slot-btn'; pb.textContent='Preset: '+p.label;
-          pb.onclick=function(){ applyPreset(s.id, p.slots); };
+          pb.onclick=function(){ applyPreset(s.uid, p.slots); };
           presets2.appendChild(pb);
         });
         wrap.appendChild(presets2);
@@ -673,41 +1031,70 @@ function renderSelected(){
 
     var lab = document.createElement('label'); lab.textContent='Notes (optional)'; lab.style.marginTop='8px';
     var input = document.createElement('input'); input.type='text'; input.placeholder='e.g., Wait 5 min between drops'; input.value=s.notes||'';
-    input.oninput=function(e){ updateNotes(s.id, e.target.value); };
+    input.oninput=function(e){ updateNotes(s.uid, e.target.value); };
     input.style.width='100%'; input.style.padding='10px 12px'; input.style.border='1px solid var(--border)'; input.style.borderRadius='12px';
     wrap.appendChild(lab); wrap.appendChild(input);
 
     // Eye selector (buttons: Both/Right/Left)
     (function(){
-      var eyeRow = document.createElement('div');
-      eyeRow.style.marginTop='8px';
-      eyeRow.style.display='flex';
-      eyeRow.style.alignItems='center';
-      eyeRow.style.gap='8px';
-      var eyeLab = document.createElement('label');
-      eyeLab.textContent='Eye';
-      eyeLab.style.margin='0';
-      function mkBtn(label, val){
-        var b = document.createElement('button');
-        b.className = 'slot-btn';
-        b.textContent = label;
-        if((s.eye||'OU')===val) b.classList.add('active');
-        b.onclick = function(){
-          selected = selected.map(function(x){ return x.id===s.id ? Object.assign({}, x, {eye: val}) : x; });
-          renderSelected(); // re-render to update active button + preview
-        };
-        return b;
+      if(s.id==='diamox'){
+        var pillRow = document.createElement('div');
+        pillRow.style.marginTop='8px';
+        pillRow.style.display='flex';
+        pillRow.style.alignItems='center';
+        pillRow.style.gap='8px';
+        var pillLab = document.createElement('label');
+        pillLab.textContent='Dosage';
+        pillLab.style.margin='0';
+        function mkPillBtn(label, val){
+          var b = document.createElement('button');
+          b.className = 'slot-btn';
+          b.textContent = label;
+          if((s.eye||'1pill')===val) b.classList.add('active');
+          b.onclick = function(){
+            selected = selected.map(function(x){ return x.uid===s.uid ? Object.assign({}, x, {eye: val}) : x; });
+            renderSelected();
+          };
+          return b;
+        }
+        var group = document.createElement('div');
+        group.style.display='flex'; group.style.gap='6px'; group.style.flexWrap='wrap';
+        group.appendChild(mkPillBtn('1 Pill (250 mg)', '1pill'));
+        group.appendChild(mkPillBtn('2 Pills (500 mg)', '2pills'));
+        pillRow.appendChild(pillLab);
+        pillRow.appendChild(group);
+        wrap.appendChild(pillRow);
+      } else {
+        var eyeRow = document.createElement('div');
+        eyeRow.style.marginTop='8px';
+        eyeRow.style.display='flex';
+        eyeRow.style.alignItems='center';
+        eyeRow.style.gap='8px';
+        var eyeLab = document.createElement('label');
+        eyeLab.textContent='Eye';
+        eyeLab.style.margin='0';
+        function mkBtn(label, val){
+          var b = document.createElement('button');
+          b.className = 'slot-btn';
+          b.textContent = label;
+          if((s.eye||'OU')===val) b.classList.add('active');
+          b.onclick = function(){
+            selected = selected.map(function(x){ return x.uid===s.uid ? Object.assign({}, x, {eye: val}) : x; });
+            renderSelected();
+          };
+          return b;
+        }
+        var group = document.createElement('div');
+        group.style.display='flex'; group.style.gap='6px'; group.style.flexWrap='wrap';
+        group.appendChild(mkBtn('Both Eyes', 'OU'));
+        group.appendChild(mkBtn('Right Eye', 'OD'));
+        group.appendChild(mkBtn('Left Eye', 'OS'));
+        eyeRow.appendChild(eyeLab);
+        eyeRow.appendChild(group);
+        wrap.appendChild(eyeRow);
       }
-      var group = document.createElement('div');
-      group.style.display='flex'; group.style.gap='6px'; group.style.flexWrap='wrap';
-      group.appendChild(mkBtn('Both Eyes', 'OU'));
-      group.appendChild(mkBtn('Right Eye', 'OD'));
-      group.appendChild(mkBtn('Left Eye', 'OS'));
-      eyeRow.appendChild(eyeLab);
-      eyeRow.appendChild(group);
-      wrap.appendChild(eyeRow);
-    })();
 
+        })();
     list.appendChild(wrap);
   });
   renderQR();
@@ -747,6 +1134,11 @@ function renderPerMedTables(wrapper, payload, opts){
       var tr = document.createElement('tr');
       var tdMed = document.createElement('td');
       tdMed.innerHTML = svgDot(r.capColor, 10) + ' ' + r.name + ' <span class=\"small\">('+(getCapLabel(r)||'—')+', '+eyeFull(r.eye)+')</span>';
+      if((r.notes||'').trim()){
+        var noteEl=document.createElement('div');
+        noteEl.className='small'; noteEl.style.color='#475569';
+        noteEl.textContent=r.notes; tdMed.appendChild(noteEl);
+      }
       tr.appendChild(tdMed);
       subset.forEach(function(slot){
         var td = document.createElement('td');
@@ -773,10 +1165,15 @@ function renderPrintable(){
   var card = byId('printableCard'); card.innerHTML='';
   var payload = getPayload();
   var wrapper = document.createElement('div');
-  renderPerMedTables(wrapper, payload);
-  // Taper plan
-  var taperHTML = buildTaperSummaryHTML(payload);
-  if(taperHTML){ var div = document.createElement('div'); div.innerHTML = taperHTML; wrapper.appendChild(div); }
+  if(PREVIEW_LANG==='es'){
+    renderPerMedTables_ES(wrapper, payload);
+    var taperHTML_ES = buildTaperSummaryHTML_ES(payload);
+    if(taperHTML_ES){ var divES = document.createElement('div'); divES.innerHTML = taperHTML_ES; wrapper.appendChild(divES); }
+  } else {
+    renderPerMedTables(wrapper, payload);
+    var taperHTML = buildTaperSummaryHTML(payload);
+    if(taperHTML){ var div = document.createElement('div'); div.innerHTML = taperHTML; wrapper.appendChild(div); }
+  }
   card.appendChild(wrapper);
 }
 
@@ -859,7 +1256,7 @@ function generatePrintHTML(payload){
     body += '</tr></thead><tbody>';
     for(var r=0;r<regsSorted.length;r++){
       var reg = regsSorted[r];
-      body += '<tr><td>'+svgDot(reg.capColor, 12)+' <span>'+esc(reg.name)+'</span> <span class="small">('+esc(getCapLabel(reg)||'—')+', '+esc(eyeFull(reg.eye))+')</span></td>';
+      body += '<tr><td>'+svgDot(reg.capColor, 12)+' <span>'+esc(reg.name)+'</span> <span class="small">('+esc(getCapLabel(reg)||'—')+', '+esc(eyeFull(reg.eye))+')</span>' + (reg.notes && reg.notes.trim() ? ('<div class="small">'+esc(reg.notes)+'</div>') : '') + '</td>';
       for(var i=0;i<subset.length;i++){
         var slot2 = subset[i];
         if(slotHas(reg.slots||[], slot2)){
@@ -960,7 +1357,7 @@ function generatePdfAndPreview(doSave){
 byId('refreshPreview').onclick = function(){ var b=this; b.disabled=true; b.textContent='Rendering…'; generatePdfAndPreview(false).then(function(){ b.disabled=false; b.textContent='Refresh preview'; }).catch(function(err){ b.disabled=false; b.textContent='Refresh preview'; alert('Preview failed: '+(err&&err.message?err.message:err)); }); };
 byId('downloadPdfBtn').onclick = function(){ if(_pdfCache.blobUrl){ var a=document.createElement('a'); a.href=_pdfCache.blobUrl; a.download='schedule.pdf'; a.click(); } else { generatePdfAndPreview(true).catch(function(err){ alert('Download failed: '+(err&&err.message?err.message:err)); }); } };
 
-byId('printBtn').onclick = function () {
+setOnclickIfPresent('printBtn', function () {
   generatePdfAndPreview(true).catch(function(err){
     try {
       var payload = getPayload();
@@ -974,7 +1371,122 @@ byId('printBtn').onclick = function () {
       }
     } catch(e2){ alert('Unable to generate PDF or open print view: ' + (err && err.message ? err.message : err)); }
   });
-};
+});
+
+
+// ===== Preview language toggle (independent of print buttons) =====
+(function(){
+  var enBtn = byId('toggleEN'), esBtn = byId('toggleES');
+  function setLang(lang){
+    PREVIEW_LANG = lang;
+    if(enBtn){ enBtn.setAttribute('aria-pressed', String(lang==='en')); }
+    if(esBtn){ esBtn.setAttribute('aria-pressed', String(lang==='es')); }
+    // Re-render preview card
+    renderPrintable();
+    // Also regenerate the preview image stack to reflect chosen language
+    var meta = byId('pdfMeta'); if(meta) meta.textContent = 'Rendering preview…';
+    generatePreviewOnly().then(function(pages){
+      if(meta) meta.textContent = 'Preview ready: '+pages+' page'+(pages>1?'s':'');
+    }).catch(function(err){
+      if(meta) meta.textContent = 'Preview error: ' + (err && err.message ? err.message : err);
+    });
+  }
+  if(enBtn){ enBtn.onclick=function(){ setLang('en'); }; }
+  if(esBtn){ esBtn.onclick=function(){ setLang('es'); }; }
+})();
+
+// Generate preview pages without saving; uses PREVIEW_LANG
+function generatePreviewOnly(){
+  return new Promise(function(resolve, reject){
+    try {
+      var payload = getPayload();
+      var node = (function(){ // build printable DOM according to language
+        var container = document.createElement('div');
+        container.style.background = '#fff';
+        container.style.color = '#0f172a';
+        container.style.font = '14px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto';
+        var wrap = document.createElement('div');
+        if(PREVIEW_LANG==='es'){ renderPerMedTables_ES(wrap, payload, {hidePatientLine:true}); wrap.innerHTML += buildTaperSummaryHTML_ES(payload); }
+        else { renderPerMedTables(wrap, payload, {hidePatientLine:true}); wrap.innerHTML += buildTaperSummaryHTML(payload); }
+        container.appendChild(wrap);
+        var tables = container.querySelectorAll('table');
+        for(var ti=0; ti<tables.length; ti++){ var t=tables[ti]; t.style.width='100%'; t.style.tableLayout='fixed'; t.style.borderCollapse='collapse'; var cells=t.querySelectorAll('th,td'); for(var ci=0; ci<cells.length; ci++){ var c=cells[ci]; c.style.padding='8px'; c.style.whiteSpace='normal'; c.style.wordBreak='break-word'; c.style.overflowWrap='anywhere'; } }
+        return container;
+      })();
+      var host = document.createElement('div'); host.style.position='fixed'; host.style.left='-99999px'; host.style.top='0'; host.style.background='#fff';
+      document.body.appendChild(host); host.appendChild(node);
+
+      var jsPDFCtor = window.jspdf && window.jspdf.jsPDF ? window.jspdf.jsPDF : null;
+      if(!window.html2canvas){ throw new Error('Canvas lib not loaded'); }
+      var pageWpt = 612; var pageHpt = 792; // letter in points
+      var margin = 36;
+      var contentWpt = pageWpt - margin*2;
+      var contentHpt = pageHpt - margin*2;
+      var pxPerPt = 96/72;
+      var contentWpx = Math.round(contentWpt * pxPerPt);
+      node.style.width = contentWpx + 'px';
+
+      html2canvas(node, {scale: 2, useCORS: true, backgroundColor: '#ffffff'}).then(function(canvas){
+        var imgWpx = canvas.width, imgHpx = canvas.height;
+        var k = contentWpt / imgWpx;
+        var pageHeightPx = Math.floor(contentHpt / k);
+
+        var preview = byId('pdfPreview'); if(preview) preview.innerHTML='';
+        var pageCount = 0, y = 0;
+        while(y < imgHpx){
+          var sliceHeight = Math.min(pageHeightPx, imgHpx - y);
+          var pageCanvas = document.createElement('canvas'); pageCanvas.width = imgWpx; pageCanvas.height = sliceHeight;
+          var ctx = pageCanvas.getContext('2d'); ctx.drawImage(canvas, 0, y, imgWpx, sliceHeight, 0, 0, imgWpx, sliceHeight);
+          var imgData = pageCanvas.toDataURL('image/png');
+          if(preview){ var img=document.createElement('img'); img.src=imgData; img.style.width='100%'; img.style.height='auto'; img.style.border='1px solid var(--border)'; img.style.borderRadius='8px'; preview.appendChild(img); }
+          y += sliceHeight; pageCount++;
+        }
+        document.body.removeChild(host);
+        resolve(pageCount);
+      }).catch(function(err){ document.body.removeChild(host); reject(err); });
+    } catch(e){ reject(e); }
+  });
+}
+
+// ----- Bilingual print buttons (independent of toggle) -----
+(function(){
+  var enBtn = byId('printBtnEn');
+  if(enBtn){
+    enBtn.onclick = function(){
+      generatePdfAndPreview(true).catch(function(err){
+        try{
+          var payload = getPayload();
+          var html = generatePrintHTML(payload);
+          var w = window.open('', '_blank', 'noopener,noreferrer,width=1000,height=800');
+          if(w){ w.document.open(); w.document.write(html); w.document.close(); }
+          else {
+            var blob = new Blob([html], {type:'text/html'}); var url = URL.createObjectURL(blob);
+            var a = document.createElement('a'); a.href=url; a.download='schedule.html'; a.click(); URL.revokeObjectURL(url);
+            alert('Popup was blocked. Downloaded schedule.html instead—open it to print.');
+          }
+        } catch(e2){ alert('Unable to generate PDF or open print view: ' + (err && err.message ? err.message : err)); }
+      });
+    };
+  }
+  var esBtn = byId('printBtnEs');
+  if(esBtn){
+    esBtn.onclick = function(){
+      generatePdfAndPreview_ES(true).catch(function(err){
+        try{
+          var payload = getPayload();
+          var html = generatePrintHTML_ES(payload);
+          var w = window.open('', '_blank', 'noopener,noreferrer,width=1000,height=800');
+          if(w){ w.document.open(); w.document.write(html); w.document.close(); }
+          else {
+            var blob = new Blob([html], {type:'text/html'}); var url = URL.createObjectURL(blob);
+            var a = document.createElement('a'); a.href=url; a.download='horario.html'; a.click(); URL.revokeObjectURL(url);
+            alert('Se bloqueó la ventana emergente. Se descargó horario.html; ábralo para imprimir.');
+          }
+        } catch(e2){ alert('No se pudo generar el PDF o abrir la vista de impresión: ' + (err && err.message ? err.message : err)); }
+      });
+    };
+  }
+})();
 
 // ---------------- Events ----------------
 byId('addCustomMedBtn').onclick = function () {
