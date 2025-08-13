@@ -203,6 +203,28 @@ var SLOT_LABEL = {
 var SLOT_ORDER = ['morning','midmorning','noon','lateafternoon','evening','bedtime'];
 
 
+
+// ---- Persistent frequency helpers (do not remove) ----
+function freqTextEN(reg, times){
+  try{
+    var color = String(reg.capColor||'').toLowerCase();
+    if(color==='teal') return '1x / bedtime';
+    var n = (reg.slots&&reg.slots.length)||0;
+    if(n===1 && reg.slots[0]==='bedtime') return '1x / bedtime';
+    if(n>0) return n + 'x / day';
+    return '';
+  }catch(e){ return ''; }
+}
+function freqTextES(reg, times){
+  try{
+    var color = String(reg.capColor||'').toLowerCase();
+    if(color==='teal') return '1x / noche';
+    var n = (reg.slots&&reg.slots.length)||0;
+    if(n===1 && reg.slots[0]==='bedtime') return '1x / noche';
+    if(n>0) return n + 'x / día';
+    return '';
+  }catch(e){ return ''; }
+}
 // ===== Spanish helpers + preview rendering + notes translation =====
 var PREVIEW_LANG = 'en';
 
@@ -329,7 +351,7 @@ function renderPerMedTables_ES(wrapper, payload, opts){
   var slotsChunks = chunk(sorted, 4);
 
   var top = document.createElement('div');
-  top.innerHTML = '<div style="font-weight:700">Vista previa del horario (un día)</div>'+
+  top.innerHTML = '<div style="font-weight:700">Horario de Medicación</div>'+
     '<div class="small">Espere 3–5 minutos entre cada gota.</div>'+
     (hidePatientLine ? '' : '<div class="small">'+(payload.patientName||'Paciente')+' • '+fmtDate(start)+'</div>');
   wrapper.appendChild(top);
@@ -351,7 +373,7 @@ function renderPerMedTables_ES(wrapper, payload, opts){
       var tr = document.createElement('tr');
       var tdMed = document.createElement('td');
       var esNotes = translateNotesToSpanish(r.notes||'');
-      tdMed.innerHTML = svgDot(r.capColor, 10) + ' ' + r.name + ' <span class=\"small\">('+(getCapLabel_ES(r)||'—')+', '+eyeFull_ES(r.eye)+')</span>';
+      tdMed.innerHTML = svgDot(r.capColor, 10) + ' ' + '<strong>' + r.name + '</strong>' + ' <span class=\"small\">('+(getCapLabel_ES(r)||'—')+', '+eyeFull_ES(r.eye)+')</span>' + '<div class=\"small\" style=\"font-weight:700\"><div style="font-size:16px;font-weight:bold">' + frequencyLabelES(r.slots||[]) + '</div>';
       if((r.notes||'').trim()){
         var noteEl=document.createElement('div');
         noteEl.className='small'; noteEl.style.color='#475569';
@@ -435,7 +457,7 @@ function generatePrintHTML_ES(payload){
   var body = '';
   body += '<h1>Horario de Medicación</h1>';
   body += '<div class="small">Espere 3–5 minutos entre cada gota.</div>';
-  body += '<div class="small">' + esc(payload.patientName||'Paciente') + ' • ' + esc(start.toLocaleDateString()) + '</div>';
+  body += '<div style="font-size:16px;font-weight:600;margin-top:4px">' + 'Fecha de hoy: ' + esc(new Date().toLocaleDateString()) + '</div>';
 
   var dayIndex = 0;
   var dayRegs = activeSlotsForDay(payload.regimen, dayIndex);
@@ -455,7 +477,7 @@ function generatePrintHTML_ES(payload){
     for(var r=0;r<regsSorted.length;r++){
       var reg = regsSorted[r];
       var esNotes = translateNotesToSpanish(reg.notes||'');
-      body += '<tr><td>'+svgDot(reg.capColor, 12)+' <span>'+esc(reg.name)+'</span> <span class="small">('+esc(getCapLabel_ES(reg)||'—')+', '+esc(eyeFull_ES(reg.eye))+')</span>' + (reg.notes && reg.notes.trim() ? ('<div class="small">'+esc(esNotes)+'</div>') : '') + '</td>';
+      body += '<tr><td>'+svgDot(reg.capColor, 12)+' <span><strong>'+esc(reg.name)+'</strong></span> <span class="small">('+esc(getCapLabel_ES(reg)||'—')+', '+esc(eyeFull_ES(reg.eye))+')</span>' + '<div class="small" style="font-weight:700"><div style="font-size:16px;font-weight:bold">' + frequencyLabelES(reg.slots||[]) + '</div>' + (reg.notes && reg.notes.trim() ? ('<div class="small">'+esc(esNotes)+'</div>') : '') + '</td>';
       for(var i=0;i<subset.length;i++){
         var slot2 = subset[i];
         if(slotHas(reg.slots||[], slot2)){
@@ -491,6 +513,7 @@ function generatePdfAndPreview_ES(doSave){
         nameHeader.style.margin = '0 0 10px 0';
         nameHeader.textContent = payload.patientName || '';
         if(nameHeader.textContent){ container.appendChild(nameHeader); }
+        var dateDiv=document.createElement('div'); dateDiv.style.fontSize='16px'; dateDiv.style.fontWeight='600'; dateDiv.style.margin='0 0 10px 0'; dateDiv.textContent='Fecha de hoy: ' + (new Date()).toLocaleDateString(); container.appendChild(dateDiv);
         var wrap = document.createElement('div');
         renderPerMedTables_ES(wrap, payload, {hidePatientLine:true});
         var taperHTML = buildTaperSummaryHTML_ES(payload);
@@ -691,6 +714,23 @@ function getTimes(){
   };
 }
 function slotHas(slots, slot){ return (slots||[]).indexOf(slot) > -1; }
+
+function frequencyCount(slots){
+  var s = slots||[]; return s.length;
+}
+function frequencyLabelEN(slots){
+  var n = frequencyCount(slots);
+  if(n<=0) return '';
+  // bedtime-only special
+  if(n===1 && (slots||[]).indexOf('bedtime')!==-1) return '1x / bedtime';
+  return n + 'x / day';
+}
+function frequencyLabelES(slots){
+  var n = frequencyCount(slots);
+  if(n<=0) return '';
+  if(n===1 && (slots||[]).indexOf('bedtime')!==-1) return '1x / noche';
+  return n + 'x / día';
+}
 
 function sortSlotsChrono(slots, times){
   return slots.slice().sort(function(a,b){
@@ -1112,7 +1152,7 @@ function renderPerMedTables(wrapper, payload, opts){
   var slotsChunks = chunk(sorted, 4); // max 4 slot columns per table
 
   var top = document.createElement('div');
-  top.innerHTML = '<div style="font-weight:700">Schedule Preview (single day)</div>'+
+  top.innerHTML = '<div style="font-weight:700">Medication Schedule</div>'+
     '<div class="small">Please wait 3-5 minutes between each eye drop.</div>'+
     (hidePatientLine ? '' : '<div class="small">'+(payload.patientName||'Patient')+' • '+fmtDate(start)+'</div>');
   wrapper.appendChild(top);
@@ -1133,7 +1173,7 @@ function renderPerMedTables(wrapper, payload, opts){
     regsSorted.forEach(function(r){
       var tr = document.createElement('tr');
       var tdMed = document.createElement('td');
-      tdMed.innerHTML = svgDot(r.capColor, 10) + ' ' + r.name + ' <span class=\"small\">('+(getCapLabel(r)||'—')+', '+eyeFull(r.eye)+')</span>';
+      tdMed.innerHTML = svgDot(r.capColor, 10) + ' ' + '<strong>' + r.name + '</strong>' + ' <span class=\"small\">('+(getCapLabel(r)||'—')+', '+eyeFull(r.eye)+')</span>' + '<div class=\"small\" style=\"font-weight:700\"><div style="font-size:16px;font-weight:bold">' + frequencyLabelEN(r.slots||[]) + '</div>';
       if((r.notes||'').trim()){
         var noteEl=document.createElement('div');
         noteEl.className='small'; noteEl.style.color='#475569';
@@ -1236,7 +1276,7 @@ function generatePrintHTML(payload){
   var body = '';
   body += '<h1>Medication Schedule</h1>';
   body += '<div class="small">Please wait 3-5 minutes between each eye drop.</div>';
-  body += '<div class="small">' + esc(payload.patientName||'Patient') + ' • ' + esc(start.toLocaleDateString()) + '</div>';
+  body += '<div style="font-size:16px;font-weight:600;margin-top:4px">' + ' ' + esc(new Date().toLocaleDateString()) + '</div>';
 
   // Build per-med tables with overflow columns (chronological order, meds grouped by color order)
   var dayIndex = 0;
@@ -1256,7 +1296,7 @@ function generatePrintHTML(payload){
     body += '</tr></thead><tbody>';
     for(var r=0;r<regsSorted.length;r++){
       var reg = regsSorted[r];
-      body += '<tr><td>'+svgDot(reg.capColor, 12)+' <span>'+esc(reg.name)+'</span> <span class="small">('+esc(getCapLabel(reg)||'—')+', '+esc(eyeFull(reg.eye))+')</span>' + (reg.notes && reg.notes.trim() ? ('<div class="small">'+esc(reg.notes)+'</div>') : '') + '</td>';
+      body += '<tr><td>'+svgDot(reg.capColor, 12)+' <span><strong>'+esc(reg.name)+'</strong></span> <span class="small">('+esc(getCapLabel(reg)||'—')+', '+esc(eyeFull(reg.eye))+')</span>' + '<div class="small" style="font-weight:700"><div style="font-size:16px;font-weight:bold">' + frequencyLabelEN(reg.slots||[]) + '</div>' + (reg.notes && reg.notes.trim() ? ('<div class="small">'+esc(reg.notes)+'</div>') : '') + '</td>';
       for(var i=0;i<subset.length;i++){
         var slot2 = subset[i];
         if(slotHas(reg.slots||[], slot2)){
@@ -1299,6 +1339,7 @@ function generatePdfAndPreview(doSave){
         nameHeader.style.margin = '0 0 10px 0';
         nameHeader.textContent = payload.patientName || '';
         if(nameHeader.textContent){ container.appendChild(nameHeader); }
+        var dateDiv=document.createElement('div'); dateDiv.style.fontSize='16px'; dateDiv.style.fontWeight='600'; dateDiv.style.margin='0 0 10px 0'; dateDiv.textContent='Today\'s date: ' + (new Date()).toLocaleDateString(); container.appendChild(dateDiv);
         var wrap = document.createElement('div');
         renderPerMedTables(wrap, payload, {hidePatientLine:true});
         var taperHTML = buildTaperSummaryHTML(payload);
