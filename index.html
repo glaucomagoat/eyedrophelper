@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Eye Drop Scheduler</title>
+  <title>Eye Drop Helper</title>
   <style>
     :root{
       --bg:#f8fafc; --card:#ffffff; --text:#0f172a; --muted:#475569;
@@ -53,13 +53,14 @@
 <header>
   <div class="container" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
     <div>
-      <h1 style="margin-bottom:2px">Eye Drop Scheduler</h1>
+      <h1 style="margin-bottom:2px;cursor:pointer" onclick="location.reload()">Eye Drop Helper</h1>
       <div class="small">Created by Michael C Yang MD</div>
     </div>
     <div class="actions">
-      <button class="btn dark" id="downloadJsonBtn">Download JSON</button>
-      <button class="btn primary" id="printBtnEn">Print PDF (English)</button><button class="btn dark" id="printBtnEs">Print PDF (Spanish)</button>
-    </div>
+      <button class="btn primary" id="printBtnEn">Print Schedule (English)</button><button class="btn dark" id="printBtnEs">Print Schedule (Spanish)</button>
+    <button class="btn primary" id="printListEn">Print List (English)</button>
+      <button class="btn dark" id="printListEs">Print List (Spanish)</button>
+      </div>
   </div>
 </header>
 
@@ -255,7 +256,10 @@ function eyeFull_ES(code){
   return 'Ambos ojos';
 }
 var COLOR_ES = {
-  teal:'verde azulado',
+  
+  green:'verde',
+red:'rojo',
+teal:'verde azulado',
   yellow:'amarillo',
   purple:'morado',
   orange:'naranja',
@@ -442,6 +446,12 @@ function buildTaperSummaryHTML_ES(payload){
         weekDays += step.days;
         cursor.setDate(cursor.getDate()+step.days);
       }
+            var nextWeek = Math.floor(weekDays/7)+1;
+      var stopDate = new Date(cursor);
+      out += '<tr><td style="border:1px solid #e2e8f0;padding:8px">Semana ' + nextWeek + '</td>' +
+             '<td style="border:1px solid #e2e8f0;padding:8px">' + esc(stopDate.toLocaleDateString()) + '</td>' +
+             '<td style="border:1px solid #e2e8f0;padding:8px">SUSPENDER</td>' +
+             '<td style="border:1px solid #e2e8f0;padding:8px"></td></tr>';
       out += '</tbody></table></div>';
     }
   });
@@ -452,7 +462,7 @@ function buildTaperSummaryHTML_ES(payload){
 function generatePrintHTML_ES(payload){
   function esc(s){ return String(s||'').replace(/[&<>]/g, function(m){ return ({'&':'&amp;','<':'&gt;'}[m]); }); }
   var start = new Date(payload.startDate);
-  var head = '<!doctype html><html><head><meta charset="utf-8"><title>Horario de Medicación</title>' +
+  var head = '<!doctype html><html><head><meta charset="utf-8"><title>Eye Drop Helper</title>' +
   '<style>'+cssForcePrintColors()+' :root{--text:#0f172a;--muted:#475569;--border:#e2e8f0}*{box-sizing:border-box} body{margin:28px;color:var(--text);font:17px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}h1{font-size:22px;margin:0 0 6px} .small{color:var(--muted);font-size:14px}table{width:100%;border-collapse:collapse;font-size:16px;margin-top:10px}th,td{border:1px solid var(--border);padding:10px;vertical-align:top;text-align:left}thead th{background:#f1f5f9}.entry{display:flex;align-items:center;gap:8px;margin:3px 0}.legend{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 12px}.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:3px 8px}</style></head><body>';
   var body = '';
   body += '<h1>Horario de Medicación</h1>';
@@ -653,7 +663,20 @@ var DEFAULT_DROPS = [
     ]},
   { id:'durezol', name:'Durezol (Difluprednate)', capColor:'pink', medClass:'Steroid', freqPresets:[
       {label:'QID',slots:['morning','noon','evening','bedtime']}
-    ]}
+    ]},
+  { id:'atropine', name:'Isopto Atropine (Atropine)', capColor:'red', medClass:'Cycloplegic', freqPresets:[
+      {label:'QD', slots:['morning']},
+      {label:'BID (AM/PM)', slots:['morning','evening']}
+    ]},
+
+  { id:'pilocarpine', name:'Isopto Carpine (Pilocarpine)', capColor:'green', medClass:'Glaucoma', freqPresets:[
+      {label:'TID (AM/Noon/PM)', slots:['morning','noon','evening']}
+    ]},
+  { id:'cyclopentolate', name:'Cyclogyl (Cyclopentolate)', capColor:'red', medClass:'Cycloplegic', freqPresets:[
+      {label:'TID (AM/Noon/PM)', slots:['morning','noon','evening']},
+      {label:'QD', slots:['morning']},
+      {label:'BID (AM/PM)', slots:['morning','evening']}
+    ]},
 ];
 var catalog = DEFAULT_DROPS.slice();
 var selected = [];
@@ -1261,6 +1284,12 @@ function buildTaperSummaryHTML(payload){
         weekDays += step.days;
         cursor.setDate(cursor.getDate()+step.days);
       }
+      var nextWeek = Math.floor(weekDays/7)+1;
+      var stopDate = new Date(cursor);
+      out += '<tr><td style="border:1px solid #e2e8f0;padding:8px">Week ' + nextWeek + '</td>'+
+             '<td style="border:1px solid #e2e8f0;padding:8px">' + esc(stopDate.toLocaleDateString()) + '</td>'+
+             '<td style="border:1px solid #e2e8f0;padding:8px">STOP</td>'+
+             '<td style="border:1px solid #e2e8f0;padding:8px"></td></tr>';
       out += '</tbody></table></div>';
     }
   });
@@ -1271,7 +1300,7 @@ function buildTaperSummaryHTML(payload){
 function generatePrintHTML(payload){
   function esc(s){ return String(s||'').replace(/[&<>]/g, function(m){ return ({'&':'&amp;','<':'&gt;'}[m]); }); }
   var start = new Date(payload.startDate);
-  var head = '<!doctype html><html><head><meta charset="utf-8"><title>Medication Schedule</title>' +
+  var head = '<!doctype html><html><head><meta charset="utf-8"><title>Eye Drop Helper</title>' +
   '<style>'+cssForcePrintColors()+' :root{--text:#0f172a;--muted:#475569;--border:#e2e8f0}*{box-sizing:border-box} body{margin:28px;color:var(--text);font:17px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}h1{font-size:22px;margin:0 0 6px} .small{color:var(--muted);font-size:14px}table{width:100%;border-collapse:collapse;font-size:16px;margin-top:10px}th,td{border:1px solid var(--border);padding:10px;vertical-align:top;text-align:left}thead th{background:#f1f5f9}.entry{display:flex;align-items:center;gap:8px;margin:3px 0}.legend{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 12px}.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:3px 8px}</style></head><body>';
   var body = '';
   body += '<h1>Medication Schedule</h1>';
@@ -1489,6 +1518,263 @@ function generatePreviewOnly(){
   });
 }
 
+
+// ----- List-style PDF generation (EN/ES) -----
+
+
+
+
+function buildListHTML_EN(payload){
+  function esc(s){ return String(s||'').replace(/[&<>]/g, function(m){ return ({'&':'&amp;','<':'&gt;'}[m]); }); }
+  var head = '<!doctype html><html><head><meta charset="utf-8"><title>Medication List</title>'+
+    '<style>'+cssForcePrintColors()+' *{box-sizing:border-box} body{margin:28px;color:#0f172a;font:18px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}'+
+    'h1{font-size:20px;margin:0 0 6px} .small{color:#475569;font-size:14px}'+
+    'table{width:100%;border-collapse:collapse;font-size:18px;margin-top:10px} th,td{border:1px solid #e2e8f0;padding:10px;vertical-align:top;text-align:left}'+
+    'thead th{background:#f1f5f9} .capcell{display:flex;align-items:center;gap:8px} .pname{font-size:20px;font-weight:700;margin:0 0 6px} .mname{font-weight:800}'+
+    '</style></head><body>';
+
+  var body = "";
+  var today = new Date().toLocaleDateString();
+  if(payload.patientName){ body += '<div class="pname">'+esc(payload.patientName)+'</div>'; }
+  body += '<h1>Medication List</h1>';
+  body += '<div class="small" style="font-weight:600;margin:2px 0 10px">Today\'s date: '+esc(today)+'</div>';
+
+  // Build a quick map from id->full regimen item for taper checks
+  var regMap = {}; (payload.regimen||[]).forEach(function(r){ regMap[r.id] = r; });
+
+  var dayRegs = activeSlotsForDay(payload.regimen, 0);
+  var regsSorted = sortByColorThenName(dayRegs);
+
+  // Determine if any notes exist; if none, omit the Notes column entirely
+  var includeNotes = false;
+  for(var i=0;i<regsSorted.length;i++){ if((regsSorted[i].notes||'').trim()){ includeNotes = true; break; } }
+
+  // Build table
+  body += '<table><thead><tr>';
+  body += '<th>Medication</th><th>Cap color</th><th>Eye</th><th>Frequency</th>';
+  if(includeNotes){ body += '<th>Notes</th>'; }
+  body += '</tr></thead><tbody>';
+
+  regsSorted.forEach(function(r){
+    var full = regMap[r.id] || r;
+    var showTaper = !!(full.taper && full.taper.enabled && full.taper.steps && full.taper.steps.length);
+    body += '<tr>';
+    body += '<td class="mname">'+esc(r.name)+'</td>';
+    body += '<td><div class="capcell">'+svgDot(r.capColor, 14)+'<span>' + esc(getCapLabel(r)||'—') + '</span></div></td>';
+    body += '<td>'+esc(eyeFull(r.eye))+'</td>';
+    body += '<td>'+ (showTaper ? 'See Taper Plan' : esc(frequencyLabelEN(r.slots||[]))) +'</td>';
+    if(includeNotes){ body += '<td>'+esc(r.notes||'')+'</td>'; }
+    body += '</tr>';
+  });
+  body += '</tbody></table>';
+
+  // Taper schedules section (use full payload.regimen so taper data is present)
+  var anyTaper = false;
+  (payload.regimen||[]).forEach(function(r){ if(r.taper && r.taper.enabled && r.taper.steps && r.taper.steps.length){ anyTaper = true; } });
+  if(anyTaper){
+    body += '<h1 style="margin-top:16px">Taper schedule</h1>';
+    (payload.regimen||[]).forEach(function(r){
+      if(!(r.taper && r.taper.enabled && r.taper.steps && r.taper.steps.length)) return;
+      body += '<div class="mname" style="margin-top:8px">'+svgDot(r.capColor, 14)+' '+esc(r.name)+'</div>';
+      body += '<div class="small" style="margin:2px 0 6px">Cap: '+esc(getCapLabel(r)||'—')+' • '+esc(eyeFull(r.eye))+'</div>';
+      body += '<table><thead><tr><th>Week #</th><th>Dates</th><th># per day</th></tr></thead><tbody>';
+      var start = new Date(payload.startDate);
+      var cursor = new Date(start);
+      var weekDays = 0;
+      for(var i=0;i<r.taper.steps.length;i++){
+        var step = r.taper.steps[i];
+        var a = new Date(cursor);
+        var b = new Date(cursor); b.setDate(b.getDate()+step.days-1);
+        var wStart = Math.floor(weekDays/7)+1;
+        var wEnd = Math.floor((weekDays + step.days - 1)/7)+1;
+        var weekLabel = (wStart===wEnd) ? ('Week ' + wStart) : ('Weeks ' + wStart + '-' + wEnd);
+        body += '<tr><td>'+weekLabel+'</td><td>'+esc(a.toLocaleDateString())+' – '+esc(b.toLocaleDateString())+'</td><td>'+(step.slots?step.slots.length:0)+'</td></tr>';
+        weekDays += step.days;
+        cursor.setDate(cursor.getDate()+step.days);
+      }
+      // Extra STOP row
+      var nextWeek = Math.floor(weekDays/7)+1;
+      var stopDate = new Date(cursor); // cursor is day after last day
+      body += '<tr><td>'+'Week ' + nextWeek + '</td><td>'+esc(stopDate.toLocaleDateString())+'</td><td>STOP</td></tr>';
+      body += '</tbody></table>';
+    });
+  }
+
+  var foot = '</body></html>';
+  return head + body + foot;
+}
+
+
+
+
+
+function buildListHTML_ES(payload){
+  function esc(s){ return String(s||'').replace(/[&<>]/g, function(m){ return ({'&':'&amp;','<':'&gt;'}[m]); }); }
+  var head = '<!doctype html><html><head><meta charset="utf-8"><title>Lista de Medicamentos</title>'+
+    '<style>'+cssForcePrintColors()+' *{box-sizing:border-box} body{margin:28px;color:#0f172a;font:18px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}'+
+    'h1{font-size:20px;margin:0 0 6px} .small{color:#475569;font-size:14px}'+
+    'table{width:100%;border-collapse:collapse;font-size:18px;margin-top:10px} th,td{border:1px solid #e2e8f0;padding:10px;vertical-align:top;text-align:left}'+
+    'thead th{background:#f1f5f9} .capcell{display:flex;align-items:center;gap:8px} .pname{font-size:20px;font-weight:700;margin:0 0 6px} .mname{font-weight:800}'+
+    '</style></head><body>';
+
+  var body = "";
+  var today = new Date().toLocaleDateString();
+  if(payload.patientName){ body += '<div class="pname">'+esc(payload.patientName)+'</div>'; }
+  body += '<h1>Lista de Medicamentos</h1>';
+  body += '<div class="small" style="font-weight:600;margin:2px 0 10px">Fecha de hoy: '+esc(today)+'</div>';
+
+  // Build a quick map from id->full regimen item for taper checks
+  var regMap = {}; (payload.regimen||[]).forEach(function(r){ regMap[r.id] = r; });
+
+  var dayRegs = activeSlotsForDay(payload.regimen, 0);
+  var regsSorted = sortByColorThenName(dayRegs);
+
+  // Determine if any notes exist; if none, omit the Notes column entirely
+  var includeNotes = false;
+  for(var i=0;i<regsSorted.length;i++){ if((regsSorted[i].notes||'').trim()){ includeNotes = true; break; } }
+
+  // Build table
+  body += '<table><thead><tr>';
+  body += '<th>Medicamento</th><th>Color de tapa</th><th>Ojo</th><th>Frecuencia</th>';
+  if(includeNotes){ body += '<th>Notas</th>'; }
+  body += '</tr></thead><tbody>';
+
+  regsSorted.forEach(function(r){
+    var full = regMap[r.id] || r;
+    var showTaper = !!(full.taper && full.taper.enabled && full.taper.steps && full.taper.steps.length);
+    var esNotes = translateNotesToSpanish(r.notes||'');
+    body += '<tr>';
+    body += '<td class="mname">'+esc(r.name)+'</td>';
+    body += '<td><div class="capcell">'+svgDot(r.capColor, 14)+'<span>' + esc(getCapLabel_ES(r)||'—') + '</span></div></td>';
+    body += '<td>'+esc(eyeFull_ES(r.eye))+'</td>';
+    body += '<td>'+ (showTaper ? 'Ver plan de reducción' : esc(frequencyLabelES(r.slots||[]))) +'</td>';
+    if(includeNotes){ body += '<td>'+esc(esNotes)+'</td>'; }
+    body += '</tr>';
+  });
+  body += '</tbody></table>';
+
+  // Taper schedules section (use full payload.regimen so taper data is present)
+  var anyTaper = false;
+  (payload.regimen||[]).forEach(function(r){ if(r.taper && r.taper.enabled && r.taper.steps && r.taper.steps.length){ anyTaper = true; } });
+  if(anyTaper){
+    body += '<h1 style="margin-top:16px">Plan de reducción</h1>';
+    (payload.regimen||[]).forEach(function(r){
+      if(!(r.taper && r.taper.enabled && r.taper.steps && r.taper.steps.length)) return;
+      body += '<div class="mname" style="margin-top:8px">'+svgDot(r.capColor, 14)+' '+esc(r.name)+'</div>';
+      body += '<div class="small" style="margin:2px 0 6px">Tapa: '+esc(getCapLabel_ES(r)||'—')+' • '+esc(eyeFull_ES(r.eye))+'</div>';
+      body += '<table><thead><tr><th>Semana</th><th>Fechas</th><th>N.º al día</th></tr></thead><tbody>';
+      var start = new Date(payload.startDate);
+      var cursor = new Date(start);
+      var weekDays = 0;
+      for(var i=0;i<r.taper.steps.length;i++){
+        var step = r.taper.steps[i];
+        var a = new Date(cursor);
+        var b = new Date(cursor); b.setDate(b.getDate()+step.days-1);
+        var wStart = Math.floor(weekDays/7)+1;
+        var wEnd = Math.floor((weekDays + step.days - 1)/7)+1;
+        var weekLabel = (wStart===wEnd) ? ('Semana ' + wStart) : ('Semanas ' + wStart + '-' + wEnd);
+        body += '<tr><td>'+weekLabel+'</td><td>'+esc(a.toLocaleDateString())+' – '+esc(b.toLocaleDateString())+'</td><td>'+(step.slots?step.slots.length:0)+'</td></tr>';
+        weekDays += step.days;
+        cursor.setDate(cursor.getDate()+step.days);
+      }
+      // Extra STOP row (Spanish keeps STOP string as requested)
+      var nextWeek = Math.floor(weekDays/7)+1;
+      var stopDate = new Date(cursor);
+      body += '<tr><td>'+'Semana ' + nextWeek + '</td><td>'+esc(stopDate.toLocaleDateString())+'</td><td>SUSPENDER</td></tr>';
+      body += '</tbody></table>';
+    });
+  }
+
+  var foot = '</body></html>';
+  return head + body + foot;
+}
+
+function generateListPDF_EN(){
+  try{
+    var payload = getPayload();
+    var jsPDFCtor = window.jspdf && window.jspdf.jsPDF ? window.jspdf.jsPDF : null;
+    if(!jsPDFCtor || !window.html2canvas){ throw new Error('PDF libs not loaded'); }
+    var html = buildListHTML_EN(payload);
+    var host = document.createElement('div'); host.style.position='fixed'; host.style.left='-99999px'; host.style.top='0'; document.body.appendChild(host);
+    var container = document.createElement('div'); container.innerHTML = html; host.appendChild(container);
+    var node = container;
+    var pdf = new jsPDFCtor({unit:'pt', format:'letter', compress:true});
+    var pageWpt = pdf.internal.pageSize.getWidth(), pageHpt = pdf.internal.pageSize.getHeight();
+    var margin = 36; var contentWpt = pageWpt - margin*2; var contentHpt = pageHpt - margin*2;
+    var pxPerPt = 96/72; var contentWpx = Math.round(contentWpt * pxPerPt); node.style.width = contentWpx + 'px';
+    html2canvas(node, {scale: 2, useCORS: true, backgroundColor: '#ffffff'}).then(function(canvas){
+      var imgWpx = canvas.width, imgHpx = canvas.height;
+      var k = contentWpt / imgWpx; var pageHeightPx = Math.floor(contentHpt / k);
+      var y = 0; var pageCount = 0;
+      while(y < imgHpx){
+        var sliceHeight = Math.min(pageHeightPx, imgHpx - y);
+        var pageCanvas = document.createElement('canvas'); pageCanvas.width = imgWpx; pageCanvas.height = sliceHeight;
+        var ctx = pageCanvas.getContext('2d'); ctx.drawImage(canvas, 0, y, imgWpx, sliceHeight, 0, 0, imgWpx, sliceHeight);
+        var imgData = pageCanvas.toDataURL('image/png');
+        if(pageCount>0) pdf.addPage();
+        var sliceHeightPt = sliceHeight * k;
+        pdf.addImage(imgData, 'PNG', margin, margin, contentWpt, sliceHeightPt);
+        y += sliceHeight; pageCount++;
+      }
+      pdf.save('medication_list_en.pdf');
+      document.body.removeChild(host);
+    }).catch(function(err){ document.body.removeChild(host); throw err; });
+  } catch(e){
+    // Fallback to print window
+    try{
+      var html = buildListHTML_EN(getPayload());
+      var w = window.open('', '_blank', 'noopener,noreferrer,width=1000,height=800');
+      if(w){ w.document.open(); w.document.write(html); w.document.close(); }
+      else { var blob = new Blob([html], {type:'text/html'}); var url = URL.createObjectURL(blob); var a = document.createElement('a'); a.href=url; a.download='medication_list_en.html'; a.click(); URL.revokeObjectURL(url); }
+    }catch(_){ alert('Unable to generate list PDF.'); }
+  }
+}
+
+function generateListPDF_ES(){
+  try{
+    var payload = getPayload();
+    var jsPDFCtor = window.jspdf && window.jspdf.jsPDF ? window.jspdf.jsPDF : null;
+    if(!jsPDFCtor || !window.html2canvas){ throw new Error('PDF libs not loaded'); }
+    var html = buildListHTML_ES(payload);
+    var host = document.createElement('div'); host.style.position='fixed'; host.style.left='-99999px'; host.style.top='0'; document.body.appendChild(host);
+    var container = document.createElement('div'); container.innerHTML = html; host.appendChild(container);
+    var node = container;
+    var pdf = new jsPDFCtor({unit:'pt', format:'letter', compress:true});
+    var pageWpt = pdf.internal.pageSize.getWidth(), pageHpt = pdf.internal.pageSize.getHeight();
+    var margin = 36; var contentWpt = pageWpt - margin*2; var contentHpt = pageHpt - margin*2;
+    var pxPerPt = 96/72; var contentWpx = Math.round(contentWpt * pxPerPt); node.style.width = contentWpx + 'px';
+    html2canvas(node, {scale: 2, useCORS: true, backgroundColor: '#ffffff'}).then(function(canvas){
+      var imgWpx = canvas.width, imgHpx = canvas.height;
+      var k = contentWpt / imgWpx; var pageHeightPx = Math.floor(contentHpt / k);
+      var y = 0; var pageCount = 0;
+      while(y < imgHpx){
+        var sliceHeight = Math.min(pageHeightPx, imgHpx - y);
+        var pageCanvas = document.createElement('canvas'); pageCanvas.width = imgWpx; pageCanvas.height = sliceHeight;
+        var ctx = pageCanvas.getContext('2d'); ctx.drawImage(canvas, 0, y, imgWpx, sliceHeight, 0, 0, imgWpx, sliceHeight);
+        var imgData = pageCanvas.toDataURL('image/png');
+        if(pageCount>0) pdf.addPage();
+        var sliceHeightPt = sliceHeight * k;
+        pdf.addImage(imgData, 'PNG', margin, margin, contentWpt, sliceHeightPt);
+        y += sliceHeight; pageCount++;
+      }
+      pdf.save('lista_de_medicamentos_es.pdf');
+      document.body.removeChild(host);
+    }).catch(function(err){ document.body.removeChild(host); throw err; });
+  } catch(e){
+    // Fallback to print window
+    try{
+      var html = buildListHTML_ES(getPayload());
+      var w = window.open('', '_blank', 'noopener,noreferrer,width=1000,height=800');
+      if(w){ w.document.open(); w.document.write(html); w.document.close(); }
+      else { var blob = new Blob([html], {type:'text/html'}); var url = URL.createObjectURL(blob); var a = document.createElement('a'); a.href=url; a.download='lista_de_medicamentos.html'; a.click(); URL.revokeObjectURL(url); }
+    }catch(_){ alert('No se pudo generar la lista en PDF.'); }
+  }
+}
+
+// Wire up buttons
+setOnclickIfPresent('printListEn', function(){ generateListPDF_EN(); });
+setOnclickIfPresent('printListEs', function(){ generateListPDF_ES(); });
+
 // ----- Bilingual print buttons (independent of toggle) -----
 (function(){
   var enBtn = byId('printBtnEn');
@@ -1541,11 +1827,6 @@ byId('addCustomMedBtn').onclick = function () {
 ['patientName','startDate','durationDays','t_morning','t_noon','t_evening','t_bedtime'].forEach(function(id){
   byId(id).addEventListener('input', function(){ renderQR(); renderPrintable(); });
 });
-byId('downloadJsonBtn').onclick = function (){
-  var payload = getPayload();
-  download('schedule-' + (payload.patientName||'patient') + '.json', JSON.stringify(payload,null,2));
-};
-
 // ---------------- Init ----------------
 (function init(){
   try{
