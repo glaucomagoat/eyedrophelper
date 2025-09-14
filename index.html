@@ -381,7 +381,7 @@ function renderPerMedTables_ES(wrapper, payload, opts){
       var tr = document.createElement('tr');
       var tdMed = document.createElement('td');
       var esNotes = translateNotesToSpanish(r.notes||'');
-      tdMed.innerHTML = svgDot(r.capColor, 10) + ' ' + '<strong>' + r.name + '</strong>' + ' <span class=\"small\">('+(getCapLabel_ES(r)||'—')+', '+eyeFull_ES(r.eye)+')</span>' + '<div class=\"small\" style=\"font-weight:700\"><div style="font-size:16px;font-weight:bold">' + frequencyLabelES(r.slots||[]) + '</div>';
+      tdMed.innerHTML = svgDot(r.capColor, 10) + ' ' + '<strong>' + r.name + '</strong>' + ' <span class=\"small\">('+(getCapLabel_ES(r)||'—')+', '+eyeFull_ES(r.eye)+')</span>' + '<div class=\"small\" style=\"font-weight:700\"><div style="font-size:16px;font-weight:bold">' + frequencyLabelES_for(r) + '</div>';
       if((r.notes||'').trim()){
         var noteEl=document.createElement('div');
         noteEl.className='small'; noteEl.style.color='#475569';
@@ -422,10 +422,10 @@ function buildTaperSummaryHTML_ES(payload){
     var arr = []; for(var i=0;i<slots.length;i++){ var s=slots[i]; arr.push(SLOT_LABEL_ES[s] + ' (' + toAmPm_ES(times[s]) + ')'); }
     return arr.join(', ');
   }
-  var out = ''; var any = false;
+  var out = ''; var any = false; var dayCounter = 1;
   payload.regimen.forEach(function(r){
     if(r.taper && r.taper.enabled && r.taper.steps && r.taper.steps.length){
-      any = true;
+      dayCounter = 1;any = true;
       out += '<div style="margin-top:10px"><div style="font-weight:700;margin-bottom:6px">';
       out += svgDot(r.capColor, 10) + r.name + ' <span class=\"small\">(' + eyeFull_ES(r.eye) + ')</span></div>';
       out += '<table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr>';
@@ -437,6 +437,8 @@ function buildTaperSummaryHTML_ES(payload){
       var cursor = new Date(start);
       var weekDays = 0;
       for(var i=0;i<r.taper.steps.length;i++){
+        var dayCounter = (typeof dayCounter==='number' ? dayCounter : 1);
+
         var step = r.taper.steps[i];
         out += '<tr>';
         var wStart = Math.floor(weekDays/7)+1;
@@ -449,7 +451,7 @@ function buildTaperSummaryHTML_ES(payload){
         out += '</tr>';
         weekDays += step.days;
         cursor.setDate(cursor.getDate()+step.days);
-      }
+      dayCounter += (step.days||1);dayCounter += (step.days||1);}
             var nextWeek = Math.floor(weekDays/7)+1;
       var stopDate = new Date(cursor);
       out += '<tr><td style="border:1px solid #e2e8f0;padding:8px">Semana ' + nextWeek + '</td>' +
@@ -642,6 +644,10 @@ var DEFAULT_DROPS = [
   { id:'diamox', name:'Diamox (Acetazolamide)', capColor:'white', medClass:'Oral CAI', freqPresets:[
       {label:'TID (AM/Noon/PM)',slots:['morning','noon','evening']}
     ]},
+  { id:'prednisone', name:'Prednisone', capColor:'white', medClass:'Steroid', freqPresets:[
+      {label:'Taper (default)', slots:['morning']}
+    ]},
+
 
   { id:'pred_acetate', name:'Pred Forte (Prednisolone Acetate)', capColor:'pink', medClass:'Steroid', freqPresets:[
       {label:'QID',slots:['morning','noon','evening','bedtime']},
@@ -666,6 +672,10 @@ var DEFAULT_DROPS = [
   { id:'ofloxacin', name:'Ocuflox (Ofloxacin)', capColor:'tan', medClass:'Antibiotic', freqPresets:[
       {label:'QID (AM/Noon/PM/Bedtime)',slots:['morning','noon','evening','bedtime']}
     ]},
+  { id:'moxifloxacin', name:'Vigamox (Moxifloxacin)', capColor:'tan', medClass:'Antibiotic', freqPresets:[
+      {label:'4x/day', slots:['morning','noon','evening','bedtime']}
+    ]},
+
   { id:'muro', name:'Muro 128 (Sodium Chloride 5%)', capColor:'white', medClass:'Cornea', freqPresets:[
       {label:'QID',slots:['morning','noon','evening','bedtime']},
       {label:'QHS',slots:['bedtime']}
@@ -769,6 +779,27 @@ function frequencyLabelES(slots){
   if(n===1 && (slots||[]).indexOf('bedtime')!==-1) return '1x / noche';
   return n + 'x / día';
 }
+function frequencyLabelEN_for(reg){
+  try{
+    if(reg && String(reg.capColor||'').toLowerCase()==='pink'){
+      var pl = String(reg.presetLabel||'').toLowerCase();
+      if(pl==='q1hr') return 'Every 1 hour';
+      if(pl==='q2hr') return 'Every 2 hours';
+    }
+    return frequencyLabelEN(reg && reg.slots ? reg.slots : []);
+  }catch(e){ return frequencyLabelEN([]); }
+}
+function frequencyLabelES_for(reg){
+  try{
+    if(reg && String(reg.capColor||'').toLowerCase()==='pink'){
+      var pl = String(reg.presetLabel||'').toLowerCase();
+      if(pl==='q1hr') return 'Cada 1 hora';
+      if(pl==='q2hr') return 'Cada 2 horas';
+    }
+    return frequencyLabelES(reg && reg.slots ? reg.slots : []);
+  }catch(e){ return frequencyLabelES([]); }
+}
+
 
 function sortSlotsChrono(slots, times){
   return slots.slice().sort(function(a,b){
@@ -794,16 +825,18 @@ function sortByColorThenName(arr){
 function activeSlotsForDay(regimen, dayIndex){
   return regimen.map(function(r){
     if(r.taper && r.taper.enabled && r.taper.steps && r.taper.steps.length){
-      var d = dayIndex + 1;
+      dayCounter = 1;var d = dayIndex + 1;
       for(var i=0;i<r.taper.steps.length;i++){
+        var dayCounter = (typeof dayCounter==='number' ? dayCounter : 1);
+
         var step = r.taper.steps[i];
         if(d <= step.days){
-          return {id:r.id, name:r.name, capColor:r.capColor, capLabel:r.capLabel, eye:(r.eye||'OU'), slots:step.slots, notes:r.notes||'', medClass:r.medClass};
+          return {id:r.id, name:r.name, capColor:r.capColor, capLabel:r.capLabel, eye:(r.eye||'OU'), slots:step.slots, presetLabel:(r.presetLabel||''), notes:r.notes||'', medClass:r.medClass};
         } else { d -= step.days; }
       }
-      return {id:r.id, name:r.name, capColor:r.capColor, capLabel:r.capLabel, eye:(r.eye||'OU'), slots:[], notes:r.notes||'', medClass:r.medClass};
+      return {id:r.id, name:r.name, capColor:r.capColor, capLabel:r.capLabel, eye:(r.eye||'OU'), slots:[], presetLabel:(r.presetLabel||''), notes:r.notes||'', medClass:r.medClass};
     } else {
-      return {id:r.id, name:r.name, capColor:r.capColor, capLabel:r.capLabel, eye:(r.eye||'OU'), slots:r.slots||[], notes:r.notes||'', medClass:r.medClass};
+      return {id:r.id, name:r.name, capColor:r.capColor, capLabel:r.capLabel, eye:(r.eye||'OU'), slots:r.slots||[], presetLabel:(r.presetLabel||''), notes:r.notes||'', medClass:r.medClass};
     }
   });
 }
@@ -818,7 +851,7 @@ function getPayload(){
     times: getTimes(),
     regimen: selected.map(function(s){
       return {
-        id:s.id, name:s.name, capColor:s.capColor, capLabel:s.capLabel, eye:(s.eye||'OU'), slots:s.slots, notes:s.notes||'', medClass:s.medClass,
+        id:s.id, name:s.name, capColor:s.capColor, capLabel:s.capLabel, eye:(s.eye||'OU'), slots:s.slots, presetLabel:(s.presetLabel||''), notes:s.notes||'', medClass:s.medClass,
         taper: (s.taper && s.taper.enabled) ? {enabled:true,steps:s.taper.steps} : {enabled:false,steps:[]}
       };
     })
@@ -869,7 +902,20 @@ function addDrop(opt){
   }
   var defaultNotes = (opt.id==='diamox' ? 'Take with meals. Stay hydrated. Can cause increased urination, tingling in fingers/toes, altered taste, upset stomach.' : '');
   var defaultEye = (opt.id==='diamox' ? '1pill' : 'OU');
-  selected.push({uid: makeUid(), id: opt.id, name: opt.name, capColor: opt.capColor, capLabel: opt.capLabel, eye: defaultEye, slots: slots, notes: defaultNotes, taper:{enabled:false,steps:[]}, medClass:opt.medClass});
+  
+  // Ensure local taper object exists; default disabled unless prednisone
+  var taperObj = { enabled: false, steps: [] };
+  if (opt && opt.id === 'prednisone') {
+    // Prefill default note and taper steps for prednisone
+    if (typeof defaultNotes === 'undefined') { var defaultNotes = ''; }
+    defaultNotes = "Please start 1 day prior to surgery.";
+    taperObj = { enabled: true, steps: [
+      { days: 2, slots: ['morning','noon','evening'], dose: '60mg' },
+      { days: 2, slots: ['morning','evening'],        dose: '40mg' },
+      { days: 2, slots: ['morning'],                  dose: '20mg' }
+    ]};
+  }
+selected.push({uid: makeUid(), id: opt.id, name: opt.name, capColor: opt.capColor, capLabel: opt.capLabel, eye: defaultEye, slots: slots, notes: defaultNotes, taper: taperObj, medClass:opt.medClass});
   renderSelected();
 }
 function removeDrop(uid){
@@ -885,8 +931,8 @@ function toggleSlot(uid,slot){
   });
   renderSelected();
 }
-function applyPreset(uid,slots){
-  selected = selected.map(function(s){ return s.uid===uid ? Object.assign({}, s, {slots: slots.slice()}) : s; });
+function applyPreset(uid, slots, label){
+  selected = selected.map(function(s){ return s.uid===uid ? Object.assign({}, s, {slots: slots.slice(), presetLabel:(label||'')}) : s; });
   renderSelected();
 }
 function updateNotes(uid,notes){
@@ -1068,7 +1114,34 @@ function renderSelected(){
         daysInput.style.width='120px'; daysInput.style.margin='6px 0';
         row.appendChild(daysLab); row.appendChild(daysInput);
 
-        var slotsDiv = document.createElement('div'); slotsDiv.style.marginTop='6px'; slotsDiv.style.display='flex'; slotsDiv.style.flexWrap='wrap'; slotsDiv.style.gap='8px';
+        
+        if(s.id==='prednisone'){
+          var doseRow = document.createElement('div'); doseRow.style.marginTop='6px'; doseRow.style.display='flex'; doseRow.style.alignItems='center'; doseRow.style.gap='8px';
+          var doseLab = document.createElement('label'); doseLab.textContent='Dosage'; doseLab.style.margin='0';
+          function mkDoseBtn(label,val){
+            var b=document.createElement('button'); b.className='slot-btn'; b.textContent=label;
+            if((step.dose||'')===val) b.classList.add('active');
+            b.onclick=function(){
+              selected = selected.map(function(x){
+                if(x.uid!==s.uid) return x;
+                var steps = x.taper.steps.slice();
+                var slotMap = {'60mg':['morning','noon','evening'],'40mg':['morning','evening'],'20mg':['morning'],'10mg':['morning']};
+                var newSlots = slotMap[val] || steps[idx].slots || [];
+                steps[idx] = Object.assign({}, steps[idx], {dose: val, slots: newSlots});
+                return Object.assign({}, x, {taper:Object.assign({}, x.taper, {steps:steps})});
+              });
+              renderSelected();
+            };
+            return b;
+          }
+          var doseGroup = document.createElement('div'); doseGroup.style.display='flex'; doseGroup.style.gap='6px'; doseGroup.style.flexWrap='wrap';
+          doseGroup.appendChild(mkDoseBtn('60 mg (3 tablets)','60mg'));
+          doseGroup.appendChild(mkDoseBtn('40 mg (2 tablets)','40mg'));
+          doseGroup.appendChild(mkDoseBtn('20 mg (1 tablet)','20mg'));
+          doseGroup.appendChild(mkDoseBtn('10 mg (1/2 tablet)','10mg'));
+          doseRow.appendChild(doseLab); doseRow.appendChild(doseGroup); row.appendChild(doseRow);
+        }
+if(s.id!=='prednisone'){var slotsDiv = document.createElement('div'); slotsDiv.style.marginTop='6px'; slotsDiv.style.display='flex'; slotsDiv.style.flexWrap='wrap'; slotsDiv.style.gap='8px';
         Object.keys(SLOT_LABEL).forEach(function(slot){
           var b = document.createElement('button');
           b.className = 'slot-btn ' + (slotHas(step.slots, slot)?'active':''); b.textContent = SLOT_LABEL[slot];
@@ -1085,12 +1158,16 @@ function renderSelected(){
           slotsDiv.appendChild(b);
         });
         row.appendChild(slotsDiv);
-        stepsDiv.appendChild(row);
+        }stepsDiv.appendChild(row);
       });
       wrap.appendChild(stepsDiv);
 
       var addStepBtn = document.createElement('button'); addStepBtn.className='btn ghost'; addStepBtn.textContent='+ Add step';
-      addStepBtn.onclick=function(){ addTaperStep(s.id,{days:7, slots:['morning','evening']}); };
+      addStepBtn.onclick=function(){
+        var def = {days:7, slots:['morning','evening']};
+        if(s.id==='prednisone'){ def = {days:2, slots:['morning','evening'], dose:'40mg'}; }
+        addTaperStep(s.uid, def);
+      };
       wrap.appendChild(addStepBtn);
     } else {
       var slotsDiv2 = document.createElement('div'); slotsDiv2.style.marginTop='8px'; slotsDiv2.style.display='flex'; slotsDiv2.style.flexWrap='wrap'; slotsDiv2.style.gap='8px';
@@ -1107,7 +1184,7 @@ function renderSelected(){
         var presets2 = document.createElement('div'); presets2.style.marginTop='8px'; presets2.style.display='flex'; presets2.style.flexWrap='wrap'; presets2.style.gap='8px';
         opt.freqPresets.forEach(function(p){
           var pb = document.createElement('button'); pb.className='slot-btn'; pb.textContent='Preset: '+p.label;
-          pb.onclick=function(){ applyPreset(s.uid, p.slots); };
+          pb.onclick = function(){ applyPreset(s.uid, p.slots, p.label); if(s.id==='prednisone' && /taper/i.test(String(p.label||''))){ setTaperEnabled(s.uid,true); addCommonTaper(s.uid,'prednisone_default'); } };
           presets2.appendChild(pb);
         });
         wrap.appendChild(presets2);
@@ -1155,7 +1232,7 @@ function renderSelected(){
         eyeRow.style.display='flex';
         eyeRow.style.alignItems='center';
         eyeRow.style.gap='8px';
-        var eyeLab = document.createElement('label');
+        if(s.id!=='prednisone'){var eyeLab = document.createElement('label');
         eyeLab.textContent='Eye';
         eyeLab.style.margin='0';
         function mkBtn(label, val){
@@ -1177,7 +1254,7 @@ function renderSelected(){
         eyeRow.appendChild(eyeLab);
         eyeRow.appendChild(group);
         wrap.appendChild(eyeRow);
-      }
+      }}
 
         })();
     list.appendChild(wrap);
@@ -1218,7 +1295,7 @@ function renderPerMedTables(wrapper, payload, opts){
     regsSorted.forEach(function(r){
       var tr = document.createElement('tr');
       var tdMed = document.createElement('td');
-      tdMed.innerHTML = svgDot(r.capColor, 10) + ' ' + '<strong>' + r.name + '</strong>' + ' <span class=\"small\">('+(getCapLabel(r)||'—')+', '+eyeFull(r.eye)+')</span>' + '<div class=\"small\" style=\"font-weight:700\"><div style="font-size:16px;font-weight:bold">' + frequencyLabelEN(r.slots||[]) + '</div>';
+      tdMed.innerHTML = svgDot(r.capColor, 10) + ' ' + '<strong>' + r.name + '</strong>' + ' <span class=\"small\">('+(getCapLabel(r)||'—')+', '+eyeFull(r.eye)+')</span>' + '<div class=\"small\" style=\"font-weight:700\"><div style="font-size:16px;font-weight:bold">' + frequencyLabelEN_for(r) + '</div>';
       if((r.notes||'').trim()){
         var noteEl=document.createElement('div');
         noteEl.className='small'; noteEl.style.color='#475569';
@@ -1278,10 +1355,10 @@ function buildTaperSummaryHTML(payload){
     return arr.join(', ');
   }
   var out = '';
-  var any = false;
+  var any = false; var dayCounter = 1;
   payload.regimen.forEach(function(r){
     if(r.taper && r.taper.enabled && r.taper.steps && r.taper.steps.length){
-      any = true;
+      dayCounter = 1;dayCounter = 1;any = true;
       out += '<div style="margin-top:10px"><div style="font-weight:700;margin-bottom:6px">';
       out += svgDot(r.capColor, 10) + r.name + ' <span class=\"small\">(' + eyeFull(r.eye) + ')</span></div>';
       out += '<table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr>';
@@ -1304,8 +1381,7 @@ function buildTaperSummaryHTML(payload){
         out += '<td style="border:1px solid #e2e8f0;padding:8px">'+esc(slotLabelList(step.slots))+'</td>';
         out += '</tr>';
         weekDays += step.days;
-        cursor.setDate(cursor.getDate()+step.days);
-      }
+        cursor.setDate(cursor.getDate()+step.days); dayCounter += (step.days||1);dayCounter += (step.days||1);}
       var nextWeek = Math.floor(weekDays/7)+1;
       var stopDate = new Date(cursor);
       out += '<tr><td style="border:1px solid #e2e8f0;padding:8px">Week ' + nextWeek + '</td>'+
@@ -1583,41 +1659,60 @@ function buildListHTML_EN(payload){
     body += '<tr>';
     body += '<td class="mname">'+esc(r.name)+'</td>';
     body += '<td><div class="capcell">'+svgDot(r.capColor, 14)+'<span>' + esc(getCapLabel(r)||'—') + '</span></div></td>';
-    body += '<td>'+esc(eyeFull(r.eye))+'</td>';
-    body += '<td>'+ (showTaper ? 'See Taper Plan' : esc(frequencyLabelEN(r.slots||[]))) +'</td>';
+    body += '<td>'+ (r.id==='prednisone' ? 'Pill (by mouth)' : esc(eyeFull(r.eye))) +'</td>';
+    body += '<td>'+ (showTaper ? 'See Taper Plan' : esc(frequencyLabelEN_for(r))) +'</td>';
     if(includeNotes){ body += '<td>'+esc(r.notes||'')+'</td>'; }
     body += '</tr>';
   });
   body += '</tbody></table>';
 
   // Taper schedules section (use full payload.regimen so taper data is present)
-  var anyTaper = false;
-  (payload.regimen||[]).forEach(function(r){ if(r.taper && r.taper.enabled && r.taper.steps && r.taper.steps.length){ anyTaper = true; } });
+  var anyTaper = false; var dayCounter = 1;
+  (payload.regimen||[]).forEach(function(r){ if(r.taper && r.taper.enabled && r.taper.steps && r.taper.steps.length){ dayCounter = 1;anyTaper = true; } });
   if(anyTaper){
     body += '<h1 style="margin-top:16px">Taper schedule</h1>';
     (payload.regimen||[]).forEach(function(r){
       if(!(r.taper && r.taper.enabled && r.taper.steps && r.taper.steps.length)) return;
-      body += '<div class="mname" style="margin-top:8px">'+svgDot(r.capColor, 14)+' '+esc(r.name)+'</div>';
+      dayCounter = 1; body += '<div class="mname" style="margin-top:8px">'+svgDot(r.capColor, 14)+' '+esc(r.name)+'</div>';
       body += '<div class="small" style="margin:2px 0 6px">Cap: '+esc(getCapLabel(r)||'—')+' • '+esc(eyeFull(r.eye))+'</div>';
-      body += '<table><thead><tr><th>Week #</th><th>Dates</th><th># per day</th></tr></thead><tbody>';
+      body += '<table><thead><tr><th>' + (r.id==='prednisone' ? 'Day #' : 'Week #') + '</th><th>Dates</th><th>' + (r.id==='prednisone' ? 'Dosage' : '# per day') + '</th></tr></thead><tbody>';
       var start = new Date(payload.startDate);
       var cursor = new Date(start);
       var weekDays = 0;
       for(var i=0;i<r.taper.steps.length;i++){
         var step = r.taper.steps[i];
         var a = new Date(cursor);
+        var dayStart = dayCounter;
+        var dayEnd = dayCounter + (step.days||1) - 1;
+        var dateStr = a.toLocaleDateString() + ' – ' + (new Date(a.getFullYear(), a.getMonth(), a.getDate()+(step.days||1)-1)).toLocaleDateString();
+        var doseLabel = (function(){
+          var d = String(step.dose||'').toLowerCase();
+          if(d==='60mg') return '60 mg (3 tablets)';
+          if(d==='40mg') return '40 mg (2 tablets)';
+          if(d==='20mg') return '20 mg (1 tablet)';
+          if(d==='10mg') return '10 mg (1/2 tablet)';
+          var n = (step.slots||[]).length;
+          if(n===3) return '60 mg (3 tablets)';
+          if(n===2) return '40 mg (2 tablets)';
+          if(n===1) return '20 mg (1 tablet)';
+          return '';
+        })();
+
         var b = new Date(cursor); b.setDate(b.getDate()+step.days-1);
         var wStart = Math.floor(weekDays/7)+1;
-        var wEnd = Math.floor((weekDays + step.days - 1)/7)+1;
-        var weekLabel = (wStart===wEnd) ? ('Week ' + wStart) : ('Weeks ' + wStart + '-' + wEnd);
-        body += '<tr><td>'+weekLabel+'</td><td>'+esc(a.toLocaleDateString())+' – '+esc(b.toLocaleDateString())+'</td><td>'+(step.slots?step.slots.length:0)+'</td></tr>';
+var wEnd = Math.floor((weekDays + step.days - 1)/7)+1;
+var weekLabel = (wStart===wEnd) ? ('Week ' + wStart) : ('Weeks ' + wStart + '-' + wEnd);
+body += (r.id==='prednisone'
+  ? ('<tr><td>'+('Day '+(dayStart===dayEnd?dayStart:(dayStart+'–'+dayEnd)))+'</td><td>'+esc(a.toLocaleDateString())+' – '+esc(b.toLocaleDateString())+'</td><td>'+esc(doseLabel)+'</td></tr>')
+  : ('<tr><td>'+weekLabel+'</td><td>'+esc(a.toLocaleDateString())+' – '+esc(b.toLocaleDateString())+'</td><td>'+((step.slots?step.slots.length:0))+'</td></tr>')
+);
         weekDays += step.days;
         cursor.setDate(cursor.getDate()+step.days);
-      }
+      dayCounter += (step.days||1);}
       // Extra STOP row
       var nextWeek = Math.floor(weekDays/7)+1;
       var stopDate = new Date(cursor); // cursor is day after last day
-      body += '<tr><td>'+'Week ' + nextWeek + '</td><td>'+esc(stopDate.toLocaleDateString())+'</td><td>STOP</td></tr>';
+      body += (r.id==='prednisone' ? ('<tr><td>'+('Day ' + dayCounter)+'</td><td>'+esc(stopDate.toLocaleDateString())+'</td><td>STOP</td></tr>') : ('<tr><td>'+'Week ' + nextWeek + '</td><td>'+esc(stopDate.toLocaleDateString())+'</td><td>STOP</td></tr>'));
       body += '</tbody></table>';
     });
   }
@@ -1668,41 +1763,60 @@ function buildListHTML_ES(payload){
     body += '<tr>';
     body += '<td class="mname">'+esc(r.name)+'</td>';
     body += '<td><div class="capcell">'+svgDot(r.capColor, 14)+'<span>' + esc(getCapLabel_ES(r)||'—') + '</span></div></td>';
-    body += '<td>'+esc(eyeFull_ES(r.eye))+'</td>';
-    body += '<td>'+ (showTaper ? 'Ver plan de reducción' : esc(frequencyLabelES(r.slots||[]))) +'</td>';
+    body += '<td>'+ (r.id==='prednisone' ? 'Tableta (por vía oral)' : esc(eyeFull_ES(r.eye))) +'</td>';
+    body += '<td>'+ (showTaper ? 'Ver plan de reducción' : esc(frequencyLabelES_for(r))) +'</td>';
     if(includeNotes){ body += '<td>'+esc(esNotes)+'</td>'; }
     body += '</tr>';
   });
   body += '</tbody></table>';
 
   // Taper schedules section (use full payload.regimen so taper data is present)
-  var anyTaper = false;
-  (payload.regimen||[]).forEach(function(r){ if(r.taper && r.taper.enabled && r.taper.steps && r.taper.steps.length){ anyTaper = true; } });
+  var anyTaper = false; var dayCounter = 1;
+  (payload.regimen||[]).forEach(function(r){ if(r.taper && r.taper.enabled && r.taper.steps && r.taper.steps.length){ dayCounter = 1;anyTaper = true; } });
   if(anyTaper){
     body += '<h1 style="margin-top:16px">Plan de reducción</h1>';
     (payload.regimen||[]).forEach(function(r){
       if(!(r.taper && r.taper.enabled && r.taper.steps && r.taper.steps.length)) return;
       body += '<div class="mname" style="margin-top:8px">'+svgDot(r.capColor, 14)+' '+esc(r.name)+'</div>';
       body += '<div class="small" style="margin:2px 0 6px">Tapa: '+esc(getCapLabel_ES(r)||'—')+' • '+esc(eyeFull_ES(r.eye))+'</div>';
-      body += '<table><thead><tr><th>Semana</th><th>Fechas</th><th>N.º al día</th></tr></thead><tbody>';
+      body += '<table><thead><tr><th>' + (r.id==='prednisone' ? 'Día #' : 'Semana') + '</th><th>Fechas</th><th>' + (r.id==='prednisone' ? 'Dosis' : 'N.º al día') + '</th></tr></thead><tbody>';
       var start = new Date(payload.startDate);
       var cursor = new Date(start);
       var weekDays = 0;
       for(var i=0;i<r.taper.steps.length;i++){
         var step = r.taper.steps[i];
         var a = new Date(cursor);
+        var dayStart = dayCounter;
+        var dayEnd = dayCounter + (step.days||1) - 1;
+        var dateStr = a.toLocaleDateString() + ' – ' + (new Date(a.getFullYear(), a.getMonth(), a.getDate()+(step.days||1)-1)).toLocaleDateString();
+        var doseLabel = (function(){
+          var d = String(step.dose||'').toLowerCase();
+          if(d==='60mg') return '60 mg (3 tablets)';
+          if(d==='40mg') return '40 mg (2 tablets)';
+          if(d==='20mg') return '20 mg (1 tablet)';
+          if(d==='10mg') return '10 mg (1/2 tablet)';
+          var n = (step.slots||[]).length;
+          if(n===3) return '60 mg (3 tablets)';
+          if(n===2) return '40 mg (2 tablets)';
+          if(n===1) return '20 mg (1 tablet)';
+          return '';
+        })();
+
         var b = new Date(cursor); b.setDate(b.getDate()+step.days-1);
         var wStart = Math.floor(weekDays/7)+1;
-        var wEnd = Math.floor((weekDays + step.days - 1)/7)+1;
-        var weekLabel = (wStart===wEnd) ? ('Semana ' + wStart) : ('Semanas ' + wStart + '-' + wEnd);
-        body += '<tr><td>'+weekLabel+'</td><td>'+esc(a.toLocaleDateString())+' – '+esc(b.toLocaleDateString())+'</td><td>'+(step.slots?step.slots.length:0)+'</td></tr>';
+var wEnd = Math.floor((weekDays + step.days - 1)/7)+1;
+var weekLabel = (wStart===wEnd) ? ('Semana ' + wStart) : ('Semanas ' + wStart + '-' + wEnd);
+body += (r.id==='prednisone'
+  ? ('<tr><td>'+('Día '+(dayStart===dayEnd?dayStart:(dayStart+'–'+dayEnd)))+'</td><td>'+esc(a.toLocaleDateString())+' – '+esc(b.toLocaleDateString())+'</td><td>'+esc(doseLabel)+'</td></tr>')
+  : ('<tr><td>'+weekLabel+'</td><td>'+esc(a.toLocaleDateString())+' – '+esc(b.toLocaleDateString())+'</td><td>'+((step.slots?step.slots.length:0))+'</td></tr>')
+);
         weekDays += step.days;
         cursor.setDate(cursor.getDate()+step.days);
-      }
+      dayCounter += (step.days||1);}
       // Extra STOP row (Spanish keeps STOP string as requested)
       var nextWeek = Math.floor(weekDays/7)+1;
       var stopDate = new Date(cursor);
-      body += '<tr><td>'+'Semana ' + nextWeek + '</td><td>'+esc(stopDate.toLocaleDateString())+'</td><td>SUSPENDER</td></tr>';
+      body += (r.id==='prednisone' ? ('<tr><td>'+('Día ' + dayCounter)+'</td><td>'+esc(stopDate.toLocaleDateString())+'</td><td>SUSPENDER</td></tr>') : ('<tr><td>'+'Semana ' + nextWeek + '</td><td>'+esc(stopDate.toLocaleDateString())+'</td><td>SUSPENDER</td></tr>'));
       body += '</tbody></table>';
     });
   }
