@@ -44,8 +44,15 @@
     .pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);padding:2px 6px;border-radius:999px;font-size:11px}
     .entry{display:flex;align-items:center;gap:8px;margin:4px 0}
     .entry .colorname{font-size:11px;color:var(--muted)}
-  </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  .chip.clear_vial{background:#fff;border:1px solid #ccc;color:#333}
+</style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" crossorigin="anonymous" referrerpolicy="no-referrer">// Guard: ensure clear_vial chip always present
+try{
+  if(Array.isArray(COLOR_ORDER)){
+    if(!COLOR_ORDER.map(normalizeColorKey).includes('clear_vial')) COLOR_ORDER.push('clear_vial');
+  }
+}catch(e){ console.warn('COLOR_ORDER guard:', e); }
+</script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
@@ -584,7 +591,7 @@ function generatePdfAndPreview_ES(doSave){
 }
 
 // custom color order for grouping
-var COLOR_ORDER = ['teal','yellow','purple','orange','blue','lightgreen','white','pink','gray','brown'];
+var COLOR_ORDER = ['teal','yellow','purple','orange','blue','lightgreen','white','pink','gray','brown','clear_vial'];
 function colorRank(c){
   var k = String(c||'').toLowerCase();
   var idx = COLOR_ORDER.indexOf(k);
@@ -702,6 +709,9 @@ var DEFAULT_DROPS = [
       {label:'QD', slots:['morning']},
       {label:'BID (AM/PM)', slots:['morning','evening']}
     ]},
+  { id:'zioptan', name:'Zioptan (Tafluprost PF)', capColor:'clear_vial', medClass:'Glaucoma', freqPresets:[{label:'QHS (bedtime)',slots:['bedtime']}] },
+  { id:'iyuzeh', name:'Iyuzeh (Latanoprost PF)', capColor:'clear_vial', medClass:'Glaucoma', freqPresets:[{label:'QHS (bedtime)',slots:['bedtime']}] },
+  { id:'pf_artificial_tears', name:'Preservative-free Artificial Tears', capColor:'clear_vial', medClass:'Lubricant', freqPresets:[{ label:'4× / day', slots:['morning','noon','evening','bedtime'] }] }
 ];
 var catalog = DEFAULT_DROPS.slice();
 var selected = [];
@@ -734,11 +744,30 @@ function toAmPm(hhmm){
 function titleCase(s){ return String(s||'').replace(/[_\-]+/g,' ').replace(/\b[a-z]/g,function(m){ return m.toUpperCase(); }); }
 function niceColorName(c){ return titleCase(c||''); }
 function getCapLabel(obj){ return obj.capLabel ? obj.capLabel : niceColorName(obj.capColor); }
+// ---- Color helpers ----
+function normalizeColorKey(c){ return String(c || '').toLowerCase().replace(/\s+/g,'_'); }
+function prettyColorLabel(c){ return String(c || '').replace(/_/g,' ').replace(/\b\w/g, function(m){ return m.toUpperCase(); }); }
+// ---- end helpers ----
 function svgDot(color, size){
-  var s = size || 10;
-  return '<svg width="'+s+'" height="'+s+'" viewBox="0 0 '+s+' '+s+'" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle; margin-right:6px;"><circle cx="'+(s/2)+'" cy="'+(s/2)+'" r="'+(s/2 - 0.5)+'" fill="'+color+'" stroke="rgba(15,23,42,.2)"/></svg>';
-}
-function cssForcePrintColors(){ return '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}'; }
+  size = size || 12;
+  var r = size / 2;
+  var key = normalizeColorKey(color);
+  var map = {
+    teal:'#14b8a6', yellow:'#f59e0b', purple:'#a855f7', orange:'#f97316',
+    blue:'#3b82f6', lightgreen:'#86efac', white:'#ffffff', pink:'#ec4899',
+    gray:'#94a3b8', brown:'#92400e', black:'#000000', tan:'#d1b38f',
+    red:'#ef4444', green:'#22c55e', clear_vial:'#ffffff'
+  };
+  var fill = map[key] || '#ffffff';
+  var stroke = (key === 'clear_vial' || key === 'white') ? '#cbd5e1' : fill;
+  var svg = '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">';
+  svg += '<circle cx="'+r+'" cy="'+r+'" r="'+(r-1)+'" fill="'+fill+'" stroke="'+stroke+'" />';
+  if (key === 'clear_vial') {
+    svg += '<line x1="'+(size*0.25)+'" y1="'+(size*0.25)+'" x2="'+(size*0.75)+'" y2="'+(size*0.75)+'" stroke="#9ca3af" stroke-width="1.5" stroke-linecap="round"/>';
+  }
+  svg += '</svg>';
+  return svg;
+}function cssForcePrintColors(){ return '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}'; }
 
 function eyeFull(code){
   var raw = String(code||'OU');
@@ -884,7 +913,7 @@ function isSelected(id){ for(var i=0;i<selected.length;i++){ if(selected[i].id==
     for(var k=0;k<gb.groups[color].length;k++){ var opt=gb.groups[color][k];
       var row=document.createElement('div'); row.className='row';
       var left=document.createElement('div');
-      left.innerHTML = '<div style="font-weight:600">'+opt.name+'</div>' + '<div class="small">'+(opt.medClass||'')+'</div>' + '<div class="small">Cap: <span class="chip"><span class="cap" style="background:'+opt.capColor+'"></span>'+ (getCapLabel(opt)||'—') +'</span></div>';
+      left.innerHTML = '<div style="font-weight:600">'+opt.name+'</div>' + '<div class="small">'+(opt.medClass||'')+'</div>' + '<div class="small">Cap: <span class="chip">'+ svgDot(normalizeColorKey(opt.capColor),14) +''+ (getCapLabel(opt)||'—') +'</span></div>';
       var btns=document.createElement('div'); btns.style.display='flex'; btns.style.gap='6px'; btns.style.alignItems='center';
       var fav=document.createElement('button'); fav.className='btn ghost'; fav.title='Favorite'; fav.textContent = favorites[opt.id] ? '⭐' : '☆'; fav.onclick=(function(opt){ return function(){ favorites[opt.id]=!favorites[opt.id]; saveFavs(); renderCatalog(); }; })(opt);
       var addBtn=document.createElement('button'); addBtn.className='btn dark'; addBtn.textContent = 'Add'; addBtn.disabled=false; addBtn.onclick=(function(opt){ return function(){ addDrop(opt); }; })(opt);
@@ -1016,7 +1045,7 @@ function buildFilterUI(){
     var seen={}, colorList = COLOR_ORDER.slice();
     for(var j=0;j<catalog.length;j++){ var col=String(catalog[j].capColor||'').toLowerCase(); if(colorList.indexOf(col)===-1 && !seen[col]){ colorList.push(col); seen[col]=true; } }
     for(var j=0;j<colorList.length;j++){
-      var col=colorList[j]; var label=col.charAt(0).toUpperCase()+col.slice(1);
+      var col=colorList[j]; var label=String(col).replace(/_/g,' ').replace(/\b\w/g,function(m){return m.toUpperCase();});
       var active=(filters.color===col);
       htmlIdx += '<span class="chip" data-color="'+col+'" style="cursor:pointer;background:'+(active?'#eef2ff':'#fff')+'">'+svgDot(col,10)+' '+label+'</span>';
     }
