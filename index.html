@@ -262,6 +262,7 @@ function eyeFull_ES(code){
   var c = raw.toUpperCase();
   if(raw==='1pill') return '1 tableta (250 mg)';
   if(raw==='2pills') return '2 tabletas (500 mg)';
+  if(raw==='halfpill') return '½ tableta (125 mg)';
   if(c==='OD') return 'Ojo derecho';
   if(c==='OS') return 'Ojo izquierdo';
   return 'Ambos ojos';
@@ -591,7 +592,7 @@ function generatePdfAndPreview_ES(doSave){
 }
 
 // custom color order for grouping
-var COLOR_ORDER = ['teal','yellow','purple','orange','blue','lightgreen','white','pink','gray','brown','clear_vial'];
+var COLOR_ORDER = ['teal', 'yellow', 'purple', 'orange', 'blue', 'lightgreen', 'white', 'pink', 'gray', 'clear_vial'];
 function colorRank(c){
   var k = String(c||'').toLowerCase();
   var idx = COLOR_ORDER.indexOf(k);
@@ -607,6 +608,11 @@ var DEFAULT_DROPS = [
       {label:'QHS (bedtime)',slots:['bedtime']}
     ]},
   { id:'bimatoprost', name:'Lumigan (Bimatoprost)', capColor:'teal', medClass:'Glaucoma', freqPresets:[
+      {label:'QHS (bedtime)',slots:['bedtime']},
+      {label:'QD morning',slots:['morning']}
+    ]},
+
+  { id:'travoprost', name:'Travatan (Travoprost)', capColor:'teal', medClass:'Glaucoma', freqPresets:[
       {label:'QHS (bedtime)',slots:['bedtime']},
       {label:'QD morning',slots:['morning']}
     ]},
@@ -775,6 +781,7 @@ function eyeFull(code){
   // Special handling for Diamox dosage selections stored in the 'eye' field
   if(raw === '1pill') return '1 Pill (250 mg)';
   if(raw === '2pills') return '2 Pills (500 mg)';
+  if(raw === 'halfpill') return '½ Pill (125 mg)';
   if(c==='OD') return 'Right Eye';
   if(c==='OS') return 'Left Eye';
   return 'Both Eyes';
@@ -1055,8 +1062,8 @@ function buildFilterUI(){
       var val=t.getAttribute('data-color') || t.textContent.trim().toLowerCase();
       filters.color = (val==='all') ? null : val;
       renderCatalog(); buildFilterUI();
-      var anchor = byId('group_'+(filters.color||'')); if(anchor){ anchor.scrollIntoView({behavior:'smooth', block:'start'}); }
-    };
+      
+};
   }
 
   // Wire search + toggles
@@ -1250,8 +1257,11 @@ if(s.id!=='prednisone'){var slotsDiv = document.createElement('div'); slotsDiv.s
         }
         var group = document.createElement('div');
         group.style.display='flex'; group.style.gap='6px'; group.style.flexWrap='wrap';
+        group.appendChild(mkPillBtn('½ Pill (125 mg)', 'halfpill'));
         group.appendChild(mkPillBtn('1 Pill (250 mg)', '1pill'));
+        
         group.appendChild(mkPillBtn('2 Pills (500 mg)', '2pills'));
+        
         pillRow.appendChild(pillLab);
         pillRow.appendChild(group);
         wrap.appendChild(pillRow);
