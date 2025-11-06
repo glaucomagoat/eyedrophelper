@@ -84,12 +84,13 @@ try{
         <label>Start date</label>
         <input id="startDate" type="date">
       </div>
-      <div>
+      <div style="display:none"><label>Duration (days)</label><input id="durationDays"<div>
         <label>Duration (days)</label>
-        <input id="durationDays" type="number" min="1" value="28">
+        <input id="durationDays" type="number" min="1" value="28">[HIDE]</div>
       </div>
     </div>
-    <div class="grid" style="grid-template-columns:1fr 1fr">
+    <div class="grid" style="grid-template-columns:1fr 1fr; display:none">
+<div class="grid" style="grid-template-columns:1fr 1fr">
       <div>
         <label>Morning time ⏰</label>
         <input id="t_morning" type="time" value="08:00">
@@ -107,6 +108,7 @@ try{
         <input id="t_bedtime" type="time" value="22:00">
       </div>
     </div>
+</div>
 
     </div>
 <div class="card" style="margin-top:16px">
@@ -416,8 +418,7 @@ function renderPerMedTables_ES(wrapper, payload, opts){
   }
 }
 
-function buildTaperSummaryHTML_ES(payload){
-  var start = new Date(payload.startDate);
+function buildTaperSummaryHTML_ES(payload){ var startFallback = payload.startDate;
   var times = payload.times;
   function esc(s){ return String(s||'').replace(/[&<>]/g, function(m){ return ({'&':'&amp;','<':'&gt;'}[m]); }); }
   function formatRange(from, days){
@@ -432,8 +433,7 @@ function buildTaperSummaryHTML_ES(payload){
   }
   var out = ''; var any = false; var dayCounter = 1;
   payload.regimen.forEach(function(r){
-    if(r.taper && r.taper.enabled && r.taper.steps && r.taper.steps.length){
-      dayCounter = 1;any = true;
+    if(r.taper && r.taper.enabled && r.taper.steps && r.taper.steps.length){ var start = new Date(r.startDate || startFallback); var blankDates = (r.startDateMode==='surgery'); dayCounter = 1;any = true;
       out += '<div style="margin-top:10px"><div style="font-weight:700;margin-bottom:6px">';
       out += svgDot(r.capColor, 10) + r.name + ' <span class=\"small\">(' + eyeFull_ES(r.eye) + ')</span></div>';
       out += '<table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr>';
@@ -443,6 +443,7 @@ function buildTaperSummaryHTML_ES(payload){
       out += '<th style="border:1px solid #e2e8f0;padding:8px;text-align:left;background:#f1f5f9">Cuándo</th>';
       out += '</tr></thead><tbody>';
       var cursor = new Date(start);
+      var blankDates = (r.startDateMode === 'surgery');
       var weekDays = 0;
       for(var i=0;i<r.taper.steps.length;i++){
         var dayCounter = (typeof dayCounter==='number' ? dayCounter : 1);
@@ -453,7 +454,7 @@ function buildTaperSummaryHTML_ES(payload){
         var wEnd = Math.floor((weekDays + step.days - 1)/7)+1;
         var weekLabel = (wStart===wEnd) ? ('Semana ' + wStart) : ('Semanas ' + wStart + '-' + wEnd);
         out += '<td style="border:1px solid #e2e8f0;padding:8px">'+weekLabel+'</td>';
-        out += '<td style="border:1px solid #e2e8f0;padding:8px">'+formatRange(cursor, step.days)+'</td>';
+        out += '<td style="border:1px solid #e2e8f0;padding:8px">'+(r.startDateMode==='surgery' ? '' : formatRange(cursor, step.days))+'</td>';
         out += '<td style="border:1px solid #e2e8f0;padding:8px">'+(step.slots?step.slots.length:0)+'</td>';
         out += '<td style="border:1px solid #e2e8f0;padding:8px">'+esc(slotLabelList(step.slots))+'</td>';
         out += '</tr>';
@@ -463,7 +464,7 @@ function buildTaperSummaryHTML_ES(payload){
             var nextWeek = Math.floor(weekDays/7)+1;
       var stopDate = new Date(cursor);
       out += '<tr><td style="border:1px solid #e2e8f0;padding:8px">Semana ' + nextWeek + '</td>' +
-             '<td style="border:1px solid #e2e8f0;padding:8px">' + esc(stopDate.toLocaleDateString()) + '</td>' +
+             '<td style="border:1px solid #e2e8f0;padding:8px">' + (r.startDateMode==='surgery' ? '' : (blankDates ? '' : esc(stopDate.toLocaleDateString()))) + '</td>' +
              '<td style="border:1px solid #e2e8f0;padding:8px">SUSPENDER</td>' +
              '<td style="border:1px solid #e2e8f0;padding:8px"></td></tr>';
       out += '</tbody></table></div>';
@@ -759,13 +760,13 @@ function svgDot(color, size){
   var r = size / 2;
   var key = normalizeColorKey(color);
   var map = {
-    teal:'#14b8a6', yellow:'#f59e0b', purple:'#a855f7', orange:'#f97316',
+    teal:'#14b8a6', yellow:'#fffd01', yellow_stroke:'#e1ad01', stroke:'#e1ad01', purple:'#a855f7', orange:'#f97316',
     blue:'#3b82f6', lightgreen:'#86efac', white:'#ffffff', pink:'#ec4899',
     gray:'#94a3b8', brown:'#92400e', black:'#000000', tan:'#d1b38f',
     red:'#ef4444', green:'#22c55e', clear_vial:'#ffffff'
   };
   var fill = map[key] || '#ffffff';
-  var stroke = (key === 'clear_vial' || key === 'white') ? '#cbd5e1' : fill;
+  var stroke = (key === 'clear_vial' || key === 'white') ? '#cbd5e1' : (key === 'yellow' ? '#e1ad01' : fill);
   var svg = '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">';
   svg += '<circle cx="'+r+'" cy="'+r+'" r="'+(r-1)+'" fill="'+fill+'" stroke="'+stroke+'" />';
   if (key === 'clear_vial') {
@@ -888,11 +889,43 @@ function getPayload(){
     regimen: selected.map(function(s){
       return {
         id:s.id, name:s.name, capColor:s.capColor, capLabel:s.capLabel, eye:(s.eye||'OU'), slots:s.slots, presetLabel:(s.presetLabel||''), notes:s.notes||'', medClass:s.medClass,
-        taper: (s.taper && s.taper.enabled) ? {enabled:true,steps:s.taper.steps} : {enabled:false,steps:[]}
+        startDate:(s.startDate || (byId('startDate')? (byId('startDate').value||new Date().toISOString().slice(0,10)) : new Date().toISOString().slice(0,10))),
+        startDateMode:(s.startDateMode||null),
+        startDate:(s.startDate || (byId('startDate')? (byId('startDate').value||new Date().toISOString().slice(0,10)) : new Date().toISOString().slice(0,10))),
+        taper: (s.taper && s.taper.enabled) ? {enabled:true,steps:s.taper.steps}
+
+: {enabled:false,steps:[]}
       };
     })
   };
 }
+
+// --- Taper start date helpers (default today; auto-show panel when taper exists) ---
+function ensureStartDateDefault(){
+  var el = byId('startDate');
+  if(!el) return;
+  if(!el.value){
+    var today = new Date();
+    var iso = new Date(today.getTime() - (today.getTimezoneOffset()*60000)).toISOString().slice(0,10);
+    el.value = iso;
+  }
+}
+function updateTimingPanelVisibility(){
+  var panel = byId('hiddenPatientTiming');
+  if(!panel) return;
+  var show = false;
+  for(var i=0;i<selected.length;i++){
+    var s = selected[i];
+    if(s && s.taper && s.taper.enabled){ show = true; break; }
+  
+
+ 
+}
+  panel.style.display = show ? '' : 'none';
+}
+
+
+
 // chunks array into groups of size n
 function chunk(arr, n){
   var out=[]; for(var i=0;i<arr.length;i+=n){ out.push(arr.slice(0+i, n+i)); } return out;
@@ -1084,7 +1117,8 @@ function renderQR(){
 function renderSelected(){
   var empty = byId('selectedEmpty');
   var list = byId('selectedList');
-  if(selected.length===0){ empty.style.display='block'; list.style.display='none'; }
+  if(selected.length===0){ empty.style.display='block'; list.style.display='none'; 
+  }
   else { empty.style.display='none'; list.style.display='block'; }
   list.innerHTML='';
   var sortedSel = sortByColorThenName(selected);
@@ -1104,15 +1138,37 @@ function renderSelected(){
 
     var taperable = (s.medClass==='Steroid' || s.medClass==='NSAID');
     if(taperable){
-      var sw = document.createElement('div'); sw.className='switch'; sw.style.marginTop='8px';
-      var cb = document.createElement('input'); cb.type='checkbox'; cb.checked = !!(s.taper && s.taper.enabled);
-      var lbl = document.createElement('span'); lbl.textContent='Use taper schedule';
-      cb.onchange=function(){ setTaperEnabled(s.uid, cb.checked); };
-      sw.appendChild(cb); sw.appendChild(lbl); wrap.appendChild(sw);
+      var sw = document.createElement('div'); sw.className='switch'; sw.style.marginTop='8px'; sw.style.display='flex'; sw.style.alignItems='center'; sw.style.gap='10px';var cb = document.createElement('input'); cb.type='checkbox'; cb.checked = !!(s.taper && s.taper.enabled);var lbl = document.createElement('span'); lbl.textContent='Use taper schedule';cb.onchange=function(){ setTaperEnabled(s.uid, cb.checked); renderSelected(); };var dos = document.createElement('button'); dos.type='button'; dos.className='chip'; dos.textContent='Remove Dates';var active = (s.startDateMode==='surgery');var taperOn = !!(s.taper && s.taper.enabled);
+      dos.style.display = taperOn ? 'inline-flex' : 'none';
+      dos.setAttribute('aria-pressed', active?'true':'false');dos.style.color = active ? '#fff' : '#111';
+      dos.style.fontWeight = active ? '600' : '500';
+      dos.style.border = '1px solid #e5e7eb';
+      dos.style.transition = 'background-color 120ms ease, color 120ms ease';
+      dos.style.background = active ? '#4f46e5' : '#fff';dos.onclick=function(){ s.startDateMode = (s.startDateMode==='surgery') ? null : 'surgery'; renderSelected(); };sw.appendChild(cb); sw.appendChild(lbl); sw.appendChild(dos); wrap.appendChild(sw);
     }
 
     if(s.taper && s.taper.enabled){
-      var help = document.createElement('div'); help.className='small'; help.textContent='Define steps (days + times per day).'; help.style.marginTop='6px'; wrap.appendChild(help);
+      
+      
+      // Per-medication start date (taper only)
+      (function(){
+        try{
+          var row = document.createElement('div');
+          row.style.marginTop = '8px';
+          var lab = document.createElement('label');
+          lab.textContent = 'Start date';
+          lab.style.display = 'block';
+          lab.style.marginBottom = '4px';
+          var inp = document.createElement('input');
+          inp.type = 'date';
+          var today = new Date();
+          var iso = new Date(today.getTime() - (today.getTimezoneOffset()*60000)).toISOString().slice(0,10);
+          inp.value = s.startDate || iso;
+
+          wrap.appendChild(row);
+        }catch(e){ /* no-op */ }
+      })();
+var help = document.createElement('div'); help.className='small'; help.textContent='Define steps (days + times per day).'; help.style.marginTop='6px'; wrap.appendChild(help);
       var presets = document.createElement('div'); presets.style.marginTop='6px'; presets.style.display='flex'; presets.style.flexWrap='wrap'; presets.style.gap='8px';
       if(s.id==='pred_acetate' || s.id==='durezol'){
         var b1 = document.createElement('button'); b1.className='slot-btn'; b1.textContent='4/4/2/2';
@@ -1298,6 +1354,8 @@ if(s.id!=='prednisone'){var slotsDiv = document.createElement('div'); slotsDiv.s
         })();
     list.appendChild(wrap);
   });
+  
+  
   renderQR();
   renderPrintable();
 }
@@ -1379,8 +1437,7 @@ function renderPrintable(){
 }
 
 // ---------- PRINT (per-med rows + overflow sections) ----------
-function buildTaperSummaryHTML(payload){
-  var start = new Date(payload.startDate);
+function buildTaperSummaryHTML(payload){ var startFallback = payload.startDate;
   var times = payload.times;
   function esc(s){ return String(s||'').replace(/[&<>]/g, function(m){ return ({'&':'&amp;','<':'&gt;'}[m]); }); }
   function formatRange(from, days){
@@ -1396,8 +1453,7 @@ function buildTaperSummaryHTML(payload){
   var out = '';
   var any = false; var dayCounter = 1;
   payload.regimen.forEach(function(r){
-    if(r.taper && r.taper.enabled && r.taper.steps && r.taper.steps.length){
-      dayCounter = 1;dayCounter = 1;any = true;
+    if(r.taper && r.taper.enabled && r.taper.steps && r.taper.steps.length){ var start = new Date(r.startDate || startFallback); var blankDates = (r.startDateMode==='surgery'); dayCounter = 1;dayCounter = 1;any = true;
       out += '<div style="margin-top:10px"><div style="font-weight:700;margin-bottom:6px">';
       out += svgDot(r.capColor, 10) + r.name + ' <span class=\"small\">(' + eyeFull(r.eye) + ')</span></div>';
       out += '<table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr>';
@@ -1407,6 +1463,7 @@ function buildTaperSummaryHTML(payload){
       out += '<th style="border:1px solid #e2e8f0;padding:8px;text-align:left;background:#f1f5f9">When</th>';
       out += '</tr></thead><tbody>';
       var cursor = new Date(start);
+      var blankDates = (r.startDateMode === 'surgery');
       var weekDays = 0; // counts elapsed days to compute week numbers
       for(var i=0;i<r.taper.steps.length;i++){
         var step = r.taper.steps[i];
@@ -1415,7 +1472,7 @@ function buildTaperSummaryHTML(payload){
         var wEnd = Math.floor((weekDays + step.days - 1)/7)+1;
         var weekLabel = (wStart===wEnd) ? ('Week ' + wStart) : ('Weeks ' + wStart + '-' + wEnd);
         out += '<td style="border:1px solid #e2e8f0;padding:8px">'+weekLabel+'</td>';
-        out += '<td style="border:1px solid #e2e8f0;padding:8px">'+formatRange(cursor, step.days)+'</td>';
+        out += '<td style="border:1px solid #e2e8f0;padding:8px">'+(r.startDateMode==='surgery' ? '' : formatRange(cursor, step.days))+'</td>';
         out += '<td style="border:1px solid #e2e8f0;padding:8px">'+(step.slots?step.slots.length:0)+'</td>';
         out += '<td style="border:1px solid #e2e8f0;padding:8px">'+esc(slotLabelList(step.slots))+'</td>';
         out += '</tr>';
@@ -1424,7 +1481,7 @@ function buildTaperSummaryHTML(payload){
       var nextWeek = Math.floor(weekDays/7)+1;
       var stopDate = new Date(cursor);
       out += '<tr><td style="border:1px solid #e2e8f0;padding:8px">Week ' + nextWeek + '</td>'+
-             '<td style="border:1px solid #e2e8f0;padding:8px">' + esc(stopDate.toLocaleDateString()) + '</td>'+
+             '<td style="border:1px solid #e2e8f0;padding:8px">' + (r.startDateMode==='surgery' ? '' : (blankDates ? '' : esc(stopDate.toLocaleDateString()))) + '</td>'+
              '<td style="border:1px solid #e2e8f0;padding:8px">STOP</td>'+
              '<td style="border:1px solid #e2e8f0;padding:8px"></td></tr>';
       out += '</tbody></table></div>';
@@ -1723,7 +1780,7 @@ function buildListHTML_EN(payload){
         var a = new Date(cursor);
         var dayStart = dayCounter;
         var dayEnd = dayCounter + (step.days||1) - 1;
-        var dateStr = a.toLocaleDateString() + ' – ' + (new Date(a.getFullYear(), a.getMonth(), a.getDate()+(step.days||1)-1)).toLocaleDateString();
+        var dateStr = datesCell;
         var doseLabel = (function(){
           var d = String(step.dose||'').toLowerCase();
           if(d==='60mg') return '60 mg (3 tablets)';
@@ -1737,13 +1794,15 @@ function buildListHTML_EN(payload){
           return '';
         })();
 
-        var b = new Date(cursor); b.setDate(b.getDate()+step.days-1);
+        var b = new Date(cursor); 
+    var datesCell = (window.__removeDatesActive===true || r.startDateMode==='surgery') ? '' : (datesCell);
+b.setDate(b.getDate()+step.days-1);
         var wStart = Math.floor(weekDays/7)+1;
 var wEnd = Math.floor((weekDays + step.days - 1)/7)+1;
 var weekLabel = (wStart===wEnd) ? ('Week ' + wStart) : ('Weeks ' + wStart + '-' + wEnd);
 body += (r.id==='prednisone'
-  ? ('<tr><td>'+('Day '+(dayStart===dayEnd?dayStart:(dayStart+'–'+dayEnd)))+'</td><td>'+esc(a.toLocaleDateString())+' – '+esc(b.toLocaleDateString())+'</td><td>'+esc(doseLabel)+'</td></tr>')
-  : ('<tr><td>'+weekLabel+'</td><td>'+esc(a.toLocaleDateString())+' – '+esc(b.toLocaleDateString())+'</td><td>'+((step.slots?step.slots.length:0))+'</td></tr>')
+  ? ('<tr><td>'+('Day '+(dayStart===dayEnd?dayStart:(dayStart+'–'+dayEnd)))+'</td><td>'+datesCell+'</td><td>'+esc(doseLabel)+'</td></tr>')
+  : ('<tr><td>'+weekLabel+'</td><td>'+datesCell+'</td><td>'+((step.slots?step.slots.length:0))+'</td></tr>')
 );
         weekDays += step.days;
         cursor.setDate(cursor.getDate()+step.days);
@@ -1751,7 +1810,7 @@ body += (r.id==='prednisone'
       // Extra STOP row
       var nextWeek = Math.floor(weekDays/7)+1;
       var stopDate = new Date(cursor); // cursor is day after last day
-      body += (r.id==='prednisone' ? ('<tr><td>'+('Day ' + dayCounter)+'</td><td>'+esc(stopDate.toLocaleDateString())+'</td><td>STOP</td></tr>') : ('<tr><td>'+'Week ' + nextWeek + '</td><td>'+esc(stopDate.toLocaleDateString())+'</td><td>STOP</td></tr>'));
+      body += (r.id==='prednisone' ? ('<tr><td>'+('Day ' + dayCounter)+'</td><td>'+(r.startDateMode==='surgery' ? '' : esc(stopDate.toLocaleDateString()))+'</td><td>STOP</td></tr>') : ('<tr><td>'+'Week ' + nextWeek + '</td><td>'+(r.startDateMode==='surgery' ? '' : esc(stopDate.toLocaleDateString()))+'</td><td>STOP</td></tr>'));
       body += '</tbody></table>';
     });
   }
@@ -1827,7 +1886,7 @@ function buildListHTML_ES(payload){
         var a = new Date(cursor);
         var dayStart = dayCounter;
         var dayEnd = dayCounter + (step.days||1) - 1;
-        var dateStr = a.toLocaleDateString() + ' – ' + (new Date(a.getFullYear(), a.getMonth(), a.getDate()+(step.days||1)-1)).toLocaleDateString();
+        var dateStr = datesCell;
         var doseLabel = (function(){
           var d = String(step.dose||'').toLowerCase();
           if(d==='60mg') return '60 mg (3 tablets)';
@@ -1841,13 +1900,15 @@ function buildListHTML_ES(payload){
           return '';
         })();
 
-        var b = new Date(cursor); b.setDate(b.getDate()+step.days-1);
+        var b = new Date(cursor); 
+    var datesCell = (window.__removeDatesActive===true || r.startDateMode==='surgery') ? '' : (datesCell);
+b.setDate(b.getDate()+step.days-1);
         var wStart = Math.floor(weekDays/7)+1;
 var wEnd = Math.floor((weekDays + step.days - 1)/7)+1;
 var weekLabel = (wStart===wEnd) ? ('Semana ' + wStart) : ('Semanas ' + wStart + '-' + wEnd);
 body += (r.id==='prednisone'
-  ? ('<tr><td>'+('Día '+(dayStart===dayEnd?dayStart:(dayStart+'–'+dayEnd)))+'</td><td>'+esc(a.toLocaleDateString())+' – '+esc(b.toLocaleDateString())+'</td><td>'+esc(doseLabel)+'</td></tr>')
-  : ('<tr><td>'+weekLabel+'</td><td>'+esc(a.toLocaleDateString())+' – '+esc(b.toLocaleDateString())+'</td><td>'+((step.slots?step.slots.length:0))+'</td></tr>')
+  ? ('<tr><td>'+('Día '+(dayStart===dayEnd?dayStart:(dayStart+'–'+dayEnd)))+'</td><td>'+datesCell+'</td><td>'+esc(doseLabel)+'</td></tr>')
+  : ('<tr><td>'+weekLabel+'</td><td>'+datesCell+'</td><td>'+((step.slots?step.slots.length:0))+'</td></tr>')
 );
         weekDays += step.days;
         cursor.setDate(cursor.getDate()+step.days);
@@ -1855,7 +1916,7 @@ body += (r.id==='prednisone'
       // Extra STOP row (Spanish keeps STOP string as requested)
       var nextWeek = Math.floor(weekDays/7)+1;
       var stopDate = new Date(cursor);
-      body += (r.id==='prednisone' ? ('<tr><td>'+('Día ' + dayCounter)+'</td><td>'+esc(stopDate.toLocaleDateString())+'</td><td>SUSPENDER</td></tr>') : ('<tr><td>'+'Semana ' + nextWeek + '</td><td>'+esc(stopDate.toLocaleDateString())+'</td><td>SUSPENDER</td></tr>'));
+      body += (r.id==='prednisone' ? ('<tr><td>'+('Día ' + dayCounter)+'</td><td>'+(r.startDateMode==='surgery' ? '' : esc(stopDate.toLocaleDateString()))+'</td><td>SUSPENDER</td></tr>') : ('<tr><td>'+'Semana ' + nextWeek + '</td><td>'+(r.startDateMode==='surgery' ? '' : esc(stopDate.toLocaleDateString()))+'</td><td>SUSPENDER</td></tr>'));
       body += '</tbody></table>';
     });
   }
@@ -2009,8 +2070,8 @@ byId('addCustomMedBtn').onclick = function () {
     byId('startDate').value = today;
     renderCatalog();
     renderSelected();
-    buildFilterUI();
-  }catch(e){
+    buildFilterUI();  
+    }catch(e){
     alert('Initialization error: ' + e.message);
   }
 })();
