@@ -360,7 +360,7 @@ function translateNotesToSpanish(s){
 
 function renderPerMedTables_ES(wrapper, payload, opts){
   opts = opts || {}; var hidePatientLine = !!opts.hidePatientLine;
-  var start = new Date(payload.startDate);
+  var start = new Date(((typeof r!=='undefined' && r && r.startDate) ? r.startDate : payload.startDate));
   var dayIndex = 0;
   var dayRegs = activeSlotsForDay(payload.regimen, dayIndex);
   var regsSorted = sortByColorThenName(dayRegs);
@@ -476,7 +476,7 @@ function buildTaperSummaryHTML_ES(payload){ var startFallback = payload.startDat
 
 function generatePrintHTML_ES(payload){
   function esc(s){ return String(s||'').replace(/[&<>]/g, function(m){ return ({'&':'&amp;','<':'&gt;'}[m]); }); }
-  var start = new Date(payload.startDate);
+  var start = new Date(((typeof r!=='undefined' && r && r.startDate) ? r.startDate : payload.startDate));
   var head = '<!doctype html><html><head><meta charset="utf-8"><title>Eye Drop Helper</title>' +
   '<style>'+cssForcePrintColors()+' :root{--text:#0f172a;--muted:#475569;--border:#e2e8f0}*{box-sizing:border-box} body{margin:28px;color:var(--text);font:17px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}h1{font-size:22px;margin:0 0 6px} .small{color:var(--muted);font-size:14px}table{width:100%;border-collapse:collapse;font-size:16px;margin-top:10px}th,td{border:1px solid var(--border);padding:10px;vertical-align:top;text-align:left}thead th{background:#f1f5f9}.entry{display:flex;align-items:center;gap:8px;margin:3px 0}.legend{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 12px}.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:3px 8px min-width:120px; justify-content:center; text-align:center;}</style></head><body>';
   var body = '';
@@ -1144,7 +1144,79 @@ function renderSelected(){
       dos.style.fontWeight = active ? '600' : '500';
       dos.style.border = '1px solid #e5e7eb';
       dos.style.transition = 'background-color 120ms ease, color 120ms ease';
-      dos.style.background = active ? '#4f46e5' : '#fff';dos.onclick=function(){ s.startDateMode = (s.startDateMode==='surgery') ? null : 'surgery'; renderSelected(); };sw.appendChild(cb); sw.appendChild(lbl); sw.appendChild(dos); wrap.appendChild(sw);
+      dos.style.background = active ? '#4f46e5' : '#fff';dos.onclick=function(){ s.startDateMode = (s.startDateMode==='surgery') ? null : 'surgery'; renderSelected(); };sw.appendChild(cb); sw.appendChild(lbl); sw.appendChild(dos); 
+      // === Per-medication taper start date control (Safari-safe, identical style to Remove Dates, bolded) ===
+      var dateWrap = document.createElement('span');
+      dateWrap.style.marginLeft = '8px';
+      dateWrap.style.display = taperOn ? 'inline-flex' : 'none';
+      dateWrap.style.position = 'relative';
+      dateWrap.style.alignItems = 'center';
+      dateWrap.style.gap = '8px';
+
+      var editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'chip';
+      editBtn.textContent = 'Edit Taper Start Date';
+      // Match "Remove Dates" bold + color + hover
+      editBtn.style.fontWeight = '600';
+      editBtn.style.background = '#fff';
+      editBtn.onmouseenter = function(){ editBtn.style.background = '#f3f4f6'; };
+      editBtn.onmouseleave = function(){ editBtn.style.background = '#fff'; };
+
+      // Visible date text in US format (MM/DD/YYYY)
+      var dateTxt = document.createElement('span');
+      dateTxt.style.fontSize = '13px';
+      dateTxt.style.color = '#6b7280'; // gray-500
+      dateTxt.style.userSelect = 'none';
+
+      function fmtUS(d){
+        try{
+          return new Date(d).toLocaleDateString('en-US');
+        }catch(e){
+          return '';
+        }
+      }
+
+      // Invisible input overlay (Safari-native date picker)
+      var dateInp = document.createElement('input');
+      dateInp.type = 'date';
+      dateInp.setAttribute('aria-label','Edit taper start date');
+      dateInp.style.position = 'absolute';
+      dateInp.style.left = '0';
+      dateInp.style.top = '0';
+      dateInp.style.width = '100%';
+      dateInp.style.height = '100%';
+      dateInp.style.opacity = '0';
+      dateInp.style.cursor = 'pointer';
+      dateInp.style.border = 'none';
+      dateInp.style.background = 'transparent';
+
+      // Default date value + text
+      (function(){
+        var today = new Date();
+        var iso = new Date(today.getTime() - (today.getTimezoneOffset()*60000)).toISOString().slice(0,10);
+        var val = (s.startDate || iso);
+        dateInp.value = val;
+        dateTxt.textContent = fmtUS(val);
+      })();
+
+      dateInp.oninput = function(e){
+        var val = e.target.value || null;
+        selected = selected.map(function(x){
+          if(x.uid!==s.uid) return x;
+          return Object.assign({}, x, { startDate: val });
+        });
+        // Update the display immediately
+        if(val){ dateTxt.textContent = fmtUS(val); }
+        renderSelected();
+      };
+
+      dateWrap.appendChild(editBtn);
+      dateWrap.appendChild(dateTxt);
+      dateWrap.appendChild(dateInp);
+      sw.appendChild(dateWrap);
+      // === End per-med start date control ===
+wrap.appendChild(sw);
     }
 
     if(s.taper && s.taper.enabled){
@@ -1172,13 +1244,13 @@ var help = document.createElement('div'); help.className='small'; help.textConte
       var presets = document.createElement('div'); presets.style.marginTop='6px'; presets.style.display='flex'; presets.style.flexWrap='wrap'; presets.style.gap='8px';
       if(s.id==='pred_acetate' || s.id==='durezol'){
         var b1 = document.createElement('button'); b1.className='slot-btn'; b1.textContent='4/4/2/2';
-        b1.onclick=function(){ addCommonTaper(s.id,'pred_4422'); };
+        b1.onclick=function(){ addCommonTaper(s.uid,'pred_4422'); };
         var b2 = document.createElement('button'); b2.className='slot-btn'; b2.textContent='4/3/2/1';
-        b2.onclick=function(){ addCommonTaper(s.id,'pred_4321'); };
+        b2.onclick=function(){ addCommonTaper(s.uid,'pred_4321'); };
         presets.appendChild(b1); presets.appendChild(b2);
       } else if(s.id==='ketorolac'){
         var k1 = document.createElement('button'); k1.className='slot-btn'; k1.textContent='4/4/0';
-        k1.onclick=function(){ addCommonTaper(s.id,'acular_440'); };
+        k1.onclick=function(){ addCommonTaper(s.uid,'acular_440'); };
         presets.appendChild(k1);
       }
       wrap.appendChild(presets);
@@ -1362,7 +1434,7 @@ if(s.id!=='prednisone'){var slotsDiv = document.createElement('div'); slotsDiv.s
 
 function renderPerMedTables(wrapper, payload, opts){
   opts = opts || {}; var hidePatientLine = !!opts.hidePatientLine;
-  var start = new Date(payload.startDate);
+  var start = new Date(((typeof r!=='undefined' && r && r.startDate) ? r.startDate : payload.startDate));
   var dayIndex = 0;
   var dayRegs = activeSlotsForDay(payload.regimen, dayIndex);
   var regsSorted = sortByColorThenName(dayRegs);
@@ -1493,7 +1565,7 @@ function buildTaperSummaryHTML(payload){ var startFallback = payload.startDate;
 
 function generatePrintHTML(payload){
   function esc(s){ return String(s||'').replace(/[&<>]/g, function(m){ return ({'&':'&amp;','<':'&gt;'}[m]); }); }
-  var start = new Date(payload.startDate);
+  var start = new Date(((typeof r!=='undefined' && r && r.startDate) ? r.startDate : payload.startDate));
   var head = '<!doctype html><html><head><meta charset="utf-8"><title>Eye Drop Helper</title>' +
   '<style>'+cssForcePrintColors()+' :root{--text:#0f172a;--muted:#475569;--border:#e2e8f0}*{box-sizing:border-box} body{margin:28px;color:var(--text);font:17px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}h1{font-size:22px;margin:0 0 6px} .small{color:var(--muted);font-size:14px}table{width:100%;border-collapse:collapse;font-size:16px;margin-top:10px}th,td{border:1px solid var(--border);padding:10px;vertical-align:top;text-align:left}thead th{background:#f1f5f9}.entry{display:flex;align-items:center;gap:8px;margin:3px 0}.legend{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 12px}.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:3px 8px min-width:120px; justify-content:center; text-align:center;}</style></head><body>';
   var body = '';
@@ -1772,7 +1844,7 @@ function buildListHTML_EN(payload){
       dayCounter = 1; body += '<div class="mname" style="margin-top:8px">'+svgDot(r.capColor, 14)+' '+esc(r.name)+'</div>';
       body += '<div class="small" style="margin:2px 0 6px">Cap: '+esc(getCapLabel(r)||'—')+' • '+esc(eyeFull(r.eye))+'</div>';
       body += '<table><thead><tr><th>' + (r.id==='prednisone' ? 'Day #' : 'Week #') + '</th><th>Dates</th><th>' + (r.id==='prednisone' ? 'Dosage' : '# per day') + '</th></tr></thead><tbody>';
-      var start = new Date(payload.startDate);
+      var start = new Date(((typeof r!=='undefined' && r && r.startDate) ? r.startDate : payload.startDate));
       var cursor = new Date(start);
       var weekDays = 0;
       for(var i=0;i<r.taper.steps.length;i++){
@@ -1878,7 +1950,7 @@ function buildListHTML_ES(payload){
       body += '<div class="mname" style="margin-top:8px">'+svgDot(r.capColor, 14)+' '+esc(r.name)+'</div>';
       body += '<div class="small" style="margin:2px 0 6px">Tapa: '+esc(getCapLabel_ES(r)||'—')+' • '+esc(eyeFull_ES(r.eye))+'</div>';
       body += '<table><thead><tr><th>' + (r.id==='prednisone' ? 'Día #' : 'Semana') + '</th><th>Fechas</th><th>' + (r.id==='prednisone' ? 'Dosis' : 'N.º al día') + '</th></tr></thead><tbody>';
-      var start = new Date(payload.startDate);
+      var start = new Date(((typeof r!=='undefined' && r && r.startDate) ? r.startDate : payload.startDate));
       var cursor = new Date(start);
       var weekDays = 0;
       for(var i=0;i<r.taper.steps.length;i++){
