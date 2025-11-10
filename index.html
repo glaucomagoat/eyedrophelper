@@ -10,15 +10,20 @@
       --primary:#4f46e5; --border:#e2e8f0;
     }
     *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,'Helvetica Neue',Arial}
+    body{margin:0;padding-bottom:60px;background:var(--bg);color:var(--text);font:16px/1.45 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,'Helvetica Neue',Arial}
     header{position:sticky;top:0;backdrop-filter:saturate(180%) blur(8px);background:rgba(255,255,255,.8);border-bottom:1px solid var(--border);z-index:10}
     .container{max-width:1100px;margin:0 auto;padding:12px 16px}
     h1{font-size:22px;margin:8px 0}
     h2{font-size:18px;margin:0 0 8px 0}
     .btn{border:none;border-radius:12px;padding:10px 14px;cursor:pointer}
     .btn.primary{background:var(--primary);color:#fff}
-    .btn.dark{background:#0f172a;color:#fff}
+    .btn.dark{background:#0f172a;color:#fff;transition:background .15s ease}
     .btn.ghost{background:#fff;border:1px solid var(--border)}
+    #catalog .btn.ghost{transition:background .15s ease,color .15s ease}
+    #catalog .btn.ghost:hover{background:#f3f4f6;color:#eab308}
+    #catalog .btn.dark{transition:background .15s ease}
+    .btn.dark:hover{background:#4779c4 !important}
+
     .grid{display:grid;gap:16px}
     @media(min-width:1000px){.grid{grid-template-columns:1fr 2fr}}
     .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
@@ -29,6 +34,8 @@
     .row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)}
     .row:last-child{border-bottom:none}
     .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:4px 8px;font-size:12px min-width:120px; justify-content:center; text-align:center;}
+    label.small:hover{background:#f3f4f6;}
+
     .cap{width:12px;height:12px;border-radius:999px;border:1px solid #0f172a33}
     .slot-btn{border:1px solid var(--border);border-radius:999px;padding:6px 10px;background:#fff;font-size:13px;cursor:pointer}
     .slot-btn.active{background:var(--primary);border-color:var(--primary);color:#fff}
@@ -111,6 +118,14 @@ try{
 </div>
 
     </div>
+
+<div class="card" id="smartShortcutsCard" style="margin-top:16px">
+  <h2>Smart Shortcuts</h2>
+  <div class="small" id="smartShortcutsEmpty">
+    No shortcuts saved yet. After you create and print schedules, your most common drop combinations will appear here for one-tap reuse.
+  </div>
+  <div id="smartShortcutsList" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+</div>
 <div class="card" style="margin-top:16px">
       <div style="display:flex;align-items:center;justify-content:space-between">
         <h2 style="margin:0">Medication Catalog</h2>
@@ -151,6 +166,7 @@ try{
   </section>
 </main>
 
+<!-- PDF PREVIEW SECTION HIDDEN FOR NOW
 <section class="container" style="margin-top:12px">
   <div class="card">
     <h2>PDF Preview</h2>
@@ -163,6 +179,8 @@ try{
     </div>
   </div>
 </section>
+END PDF PREVIEW SECTION HIDDEN -->
+
 
 <script>
 // ---------- Minimal polyfills for older Safari ----------
@@ -360,7 +378,9 @@ function translateNotesToSpanish(s){
 
 function renderPerMedTables_ES(wrapper, payload, opts){
   opts = opts || {}; var hidePatientLine = !!opts.hidePatientLine;
-  var start = new Date(((typeof r!=='undefined' && r && r.startDate) ? r.startDate : payload.startDate));
+  var startIso = (r && r.startDate) ? r.startDate : (payload.startDate || (new Date()).toISOString().slice(0,10));
+var start = new Date(startIso);
+if (isNaN(start.getTime())) start = new Date();
   var dayIndex = 0;
   var dayRegs = activeSlotsForDay(payload.regimen, dayIndex);
   var regsSorted = sortByColorThenName(dayRegs);
@@ -476,7 +496,9 @@ function buildTaperSummaryHTML_ES(payload){ var startFallback = payload.startDat
 
 function generatePrintHTML_ES(payload){
   function esc(s){ return String(s||'').replace(/[&<>]/g, function(m){ return ({'&':'&amp;','<':'&gt;'}[m]); }); }
-  var start = new Date(((typeof r!=='undefined' && r && r.startDate) ? r.startDate : payload.startDate));
+  var startIso = (r && r.startDate) ? r.startDate : (payload.startDate || (new Date()).toISOString().slice(0,10));
+var start = new Date(startIso);
+if (isNaN(start.getTime())) start = new Date();
   var head = '<!doctype html><html><head><meta charset="utf-8"><title>Eye Drop Helper</title>' +
   '<style>'+cssForcePrintColors()+' :root{--text:#0f172a;--muted:#475569;--border:#e2e8f0}*{box-sizing:border-box} body{margin:28px;color:var(--text);font:17px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}h1{font-size:22px;margin:0 0 6px} .small{color:var(--muted);font-size:14px}table{width:100%;border-collapse:collapse;font-size:16px;margin-top:10px}th,td{border:1px solid var(--border);padding:10px;vertical-align:top;text-align:left}thead th{background:#f1f5f9}.entry{display:flex;align-items:center;gap:8px;margin:3px 0}.legend{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 12px}.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:3px 8px min-width:120px; justify-content:center; text-align:center;}</style></head><body>';
   var body = '';
@@ -723,6 +745,230 @@ var DEFAULT_DROPS = [
 var catalog = DEFAULT_DROPS.slice();
 var selected = [];
 var qr = null;
+
+// ---- Smart Shortcuts (auto-learned combinations) ----
+var SHORTCUT_KEY = 'gds_shortcuts_v1';
+var shortcuts = null;
+
+function loadShortcuts(){
+  if(shortcuts && Array.isArray(shortcuts)) return shortcuts;
+  try{
+    var raw = localStorage.getItem(SHORTCUT_KEY);
+    if(!raw) { shortcuts = []; return shortcuts; }
+    var parsed = JSON.parse(raw);
+    shortcuts = Array.isArray(parsed) ? parsed : [];
+  }catch(e){
+    console.warn('SmartShortcuts load error:', e);
+    shortcuts = [];
+  }
+  return shortcuts;
+}
+
+function saveShortcuts(){
+  try{
+    if(!Array.isArray(shortcuts)) shortcuts = [];
+    localStorage.setItem(SHORTCUT_KEY, JSON.stringify(shortcuts));
+  }catch(e){
+    console.warn('SmartShortcuts save error:', e);
+  }
+}
+
+function signatureForRegs(regs){
+  if(!regs || !regs.length) return '';
+  var ids = [];
+  for(var i=0;i<regs.length;i++){
+    var id = regs[i] && regs[i].id ? String(regs[i].id) : '';
+    if(id) ids.push(id);
+  }
+  ids.sort();
+  return ids.join('+');
+}
+
+function makeShortcutLabel(regs){
+  if(!regs || !regs.length) return 'Shortcut';
+  var names = [];
+  for(var i=0;i<regs.length;i++){
+    var nm = regs[i] && regs[i].name ? String(regs[i].name) : '';
+    if(nm) names.push(nm.replace(/\s*\(.+?\)\s*$/, '')); // strip () brand/gen if present
+  }
+  if(!names.length) return 'Shortcut';
+  if(names.length <= 3) return names.join(' + ');
+  return names.slice(0,3).join(' + ') + ' +' + ' ' + (names.length-3) + ' more';
+}
+
+
+function renderSmartShortcuts(){
+  var card = byId('smartShortcutsCard');
+  if(!card) return;
+  var empty = byId('smartShortcutsEmpty');
+  var list = byId('smartShortcutsList');
+  if(!list || !empty) return;
+
+  var arr = loadShortcuts().slice();
+  if(!arr.length){
+    empty.style.display = '';
+    list.innerHTML = '';
+    return;
+  }
+
+  // sort by uses desc, then lastUsed desc
+  arr.sort(function(a,b){
+    var ua = a.uses || 0, ub = b.uses || 0;
+    if(ua !== ub) return ub - ua;
+    var la = a.lastUsed || 0, lb = b.lastUsed || 0;
+    return lb - la;
+  });
+
+  var top = arr.slice(0,4);
+  empty.style.display = 'none';
+  list.innerHTML = '';
+
+  function esc(s){
+    return String(s || '').replace(/[&<>]/g, function(m){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]);
+    });
+  }
+
+  top.forEach(function(sc, idx){
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chip';
+    btn.style.cursor = 'pointer';
+    btn.style.background = '#ffffff';
+    btn.style.border = '1px solid var(--border)';
+
+    var label = sc.label || 'Shortcut';
+
+    // collect up to 4 distinct cap colors from this shortcut's meds
+    var colors = [];
+    if(sc.regs && sc.regs.length){
+      for(var i=0;i<sc.regs.length;i++){
+        var reg = sc.regs[i];
+        var c = reg && reg.capColor ? normalizeColorKey(reg.capColor) : '';
+        if(c && colors.indexOf(c) === -1){
+          colors.push(c);
+          if(colors.length >= 4) break;
+        }
+      }
+    }
+
+    var htmlLabel = esc(label);
+    if(colors.length){
+      htmlLabel += '&nbsp;&nbsp;';
+      for(var k=0;k<colors.length;k++){
+        htmlLabel += '<span style="margin-left:4px;display:inline-flex;align-items:center;vertical-align:middle">'
+                   + svgDot(colors[k], 10)
+                   + '</span>';
+      }
+    }
+
+    btn.innerHTML = htmlLabel;
+    btn.onmouseenter = function(){ btn.style.background = '#f3f4f6'; };
+    btn.onmouseleave = function(){ btn.style.background = '#ffffff'; };
+    btn.onclick = function(){
+      applyShortcut(sc);
+    };
+    list.appendChild(btn);
+  });
+}
+
+
+function applyShortcut(sc){
+  if(!sc || !sc.regs || !sc.regs.length) return;
+  try{
+    var regs = JSON.parse(JSON.stringify(sc.regs));
+    var rebuilt = [];
+    for(var i=0;i<regs.length;i++){
+      var r = regs[i];
+      r.uid = makeUid();
+      rebuilt.push(r);
+    }
+    selected = rebuilt;
+    renderSelected();
+
+    // bump stats for this shortcut
+    var arr = loadShortcuts();
+    var sig = sc.sig || signatureForRegs(sc.regs);
+    var now = Date.now();
+    var found = false;
+    for(var j=0;j<arr.length;j++){
+      if(arr[j].sig === sig){
+        arr[j].uses = (arr[j].uses || 0) + 1;
+        arr[j].lastUsed = now;
+        found = true;
+        break;
+      }
+    }
+    if(!found && sig){
+      arr.push({
+        sig: sig,
+        label: sc.label || makeShortcutLabel(sc.regs),
+        regs: sc.regs,
+        uses: 1,
+        lastUsed: now
+      });
+    }
+    shortcuts = arr;
+    saveShortcuts();
+    renderSmartShortcuts();
+  }catch(e){
+    console.warn('applyShortcut error:', e);
+  }
+}
+
+function recordCurrentShortcut(source){
+  try{
+    if(!selected || !selected.length) return;
+    var regs = [];
+    for(var i=0;i<selected.length;i++){
+      var s = selected[i];
+      if(!s) continue;
+      var copy = JSON.parse(JSON.stringify(s));
+      delete copy.uid;
+      regs.push(copy);
+    }
+    if(!regs.length) return;
+
+    var sig = signatureForRegs(regs);
+    if(!sig) return;
+
+    var arr = loadShortcuts();
+    var now = Date.now();
+    var found = false;
+    for(var j=0;j<arr.length;j++){
+      if(arr[j].sig === sig){
+        arr[j].uses = (arr[j].uses || 0) + 1;
+        arr[j].lastUsed = now;
+        found = true;
+        break;
+      }
+    }
+    if(!found){
+      var label = makeShortcutLabel(regs);
+      arr.push({
+        sig: sig,
+        label: label,
+        regs: regs,
+        uses: 1,
+        lastUsed: now
+      });
+    }
+
+    // cap total shortcuts to avoid unbounded growth
+    arr.sort(function(a,b){
+      var ua = a.uses || 0, ub = b.uses || 0;
+      if(ua !== ub) return ub - ua;
+      var la = a.lastUsed || 0, lb = b.lastUsed || 0;
+      return lb - la;
+    });
+    if(arr.length > 24) arr = arr.slice(0,24);
+    shortcuts = arr;
+    saveShortcuts();
+    renderSmartShortcuts();
+  }catch(e){
+    console.warn('recordCurrentShortcut error:', e);
+  }
+}
 
 // ---------------- Helpers ----------------
 function byId(id){ return document.getElementById(id); }
@@ -985,7 +1231,9 @@ function addDrop(opt){
     ]};
   }
 selected.push({uid: makeUid(), id: opt.id, name: opt.name, capColor: opt.capColor, capLabel: opt.capLabel, eye: defaultEye, slots: slots, notes: defaultNotes, taper: taperObj, medClass:opt.medClass});
-  renderSelected();
+  
+if (!selected[selected.length - 1].startDate) { selected[selected.length - 1].startDate = (new Date()).toISOString().slice(0,10); }
+renderSelected();
 }
 function removeDrop(uid){
   var out=[]; for(var i=0;i<selected.length;i++){ if(selected[i].uid!==uid) out.push(selected[i]); }
@@ -1068,13 +1316,38 @@ function buildFilterUI(){
   htmlCls += '<span class="chip" data-class="all" style="cursor:pointer;background:'+(!filters.cls?'#eef2ff':'#fff')+'">All</span>';
   for(var i=0;i<clsList.length;i++){
     var t=clsList[i]; var active=(filters.cls===t);
-    htmlCls += '<span class="chip" data-class="'+t+'" style="cursor:pointer;background:'+(active?'#eef2ff':'#fff')+'">'+(t.charAt(0).toUpperCase()+t.slice(1))+'</span>';
+    htmlCls += '<span class="chip" data-class="'+t+'" style="cursor:pointer;background:'+(active?'#eef2ff':'#fff')+'">'+((function(tt){
+      var label;
+      if(tt==='antibiotic/steroid') label='Antibiotic/Steroid';
+      else if(tt==='nsaid') label='NSAID';
+      else if(tt==='oral cai') label='Oral CAI';
+      else label=tt.charAt(0).toUpperCase()+tt.slice(1);
+      return label;
+    })(t))+'</span>';
   }
   chips.innerHTML = htmlCls;
+  // hover effect for class chips
+  (function(){
+    var els = chips.querySelectorAll('.chip');
+    for(var i=0;i<els.length;i++){
+      (function(el){
+        var baseBg = el.style.background || '';
+        el.addEventListener('mouseenter', function(){ el.style.background = '#f3f4f6'; });
+        el.addEventListener('mouseleave', function(){ el.style.background = baseBg || '#fff'; });
+      })(els[i]);
+    }
+  })();
   chips.onclick = function(e){
     var t=e.target; while(t && !t.className.includes('chip')) t=t.parentElement; if(!t) return;
     var val=t.getAttribute('data-class') || t.textContent.trim().toLowerCase();
-    filters.cls = (val==='all') ? null : val;
+    if(val==='all'){
+      filters.cls = null;
+    }else if(filters.cls === val){
+      // second click on same filter -> reset to All
+      filters.cls = null;
+    }else{
+      filters.cls = val;
+    }
     renderCatalog(); buildFilterUI();
   };
 
@@ -1086,14 +1359,42 @@ function buildFilterUI(){
     for(var j=0;j<catalog.length;j++){ var col=String(catalog[j].capColor||'').toLowerCase(); if(colorList.indexOf(col)===-1 && !seen[col]){ colorList.push(col); seen[col]=true; } }
     for(var j=0;j<colorList.length;j++){
       var col=colorList[j]; var label=String(col).replace(/_/g,' ').replace(/\b\w/g,function(m){return m.toUpperCase();});
+      var lowerLabel = label.toLowerCase();
+      if(label.indexOf(' ')===-1){
+        if(lowerLabel.indexOf('light')===0 && label.length>5){
+          var tail = label.slice(5);
+          label = 'Light ' + (tail.charAt(0).toUpperCase()+tail.slice(1));
+        } else if(lowerLabel.indexOf('dark')===0 && label.length>4){
+          var tail2 = label.slice(4);
+          label = 'Dark ' + (tail2.charAt(0).toUpperCase()+tail2.slice(1));
+        }
+      }
       var active=(filters.color===col);
       htmlIdx += '<span class="chip" data-color="'+col+'" style="cursor:pointer;background:'+(active?'#eef2ff':'#fff')+'">'+svgDot(col,10)+' '+label+'</span>';
     }
     idx.innerHTML = htmlIdx;
+    // hover effect for color chips
+    (function(){
+      var els = idx.querySelectorAll('.chip');
+      for(var i=0;i<els.length;i++){
+        (function(el){
+          var baseBg = el.style.background || '';
+          el.addEventListener('mouseenter', function(){ el.style.background = '#f3f4f6'; });
+          el.addEventListener('mouseleave', function(){ el.style.background = baseBg || '#fff'; });
+        })(els[i]);
+      }
+    })();
     idx.onclick = function(e){
       var t=e.target; while(t && !t.className.includes('chip')) t=t.parentElement; if(!t) return;
       var val=t.getAttribute('data-color') || t.textContent.trim().toLowerCase();
-      filters.color = (val==='all') ? null : val;
+      if(val==='all'){
+        filters.color = null;
+      }else if(filters.color === val){
+        // second click on same color filter -> reset to All
+        filters.color = null;
+      }else{
+        filters.color = val;
+      }
       renderCatalog(); buildFilterUI();
       
 };
@@ -1107,11 +1408,21 @@ function buildFilterUI(){
 
 function renderQR(){
   var container = byId('qrcode');
+  var preview = byId('payloadPreview');
+  if(!container || !preview) return;
   container.innerHTML='';
   var payload = getPayload();
   var enc = encodePayload(payload);
-  if (window.QRCode) { qr = new QRCode(container, {text: enc, width:192, height:192}); }
-  byId('payloadPreview').textContent = 'Payload: ' + enc.slice(0,120) + '…';
+  try{
+    if(window.QRCode){
+      qr = new QRCode(container, {text: enc, width:192, height:192});
+    }
+  } catch(e){
+    if(window.console && console.warn){
+      console.warn('QR generation failed', e);
+    }
+  }
+  preview.textContent = 'Payload: ' + enc.slice(0,120) + '…';
 }
 
 function renderSelected(){
@@ -1434,7 +1745,9 @@ if(s.id!=='prednisone'){var slotsDiv = document.createElement('div'); slotsDiv.s
 
 function renderPerMedTables(wrapper, payload, opts){
   opts = opts || {}; var hidePatientLine = !!opts.hidePatientLine;
-  var start = new Date(((typeof r!=='undefined' && r && r.startDate) ? r.startDate : payload.startDate));
+  var startIso = (r && r.startDate) ? r.startDate : (payload.startDate || (new Date()).toISOString().slice(0,10));
+var start = new Date(startIso);
+if (isNaN(start.getTime())) start = new Date();
   var dayIndex = 0;
   var dayRegs = activeSlotsForDay(payload.regimen, dayIndex);
   var regsSorted = sortByColorThenName(dayRegs);
@@ -1493,18 +1806,17 @@ function renderPerMedTables(wrapper, payload, opts){
 }
 
 function renderPrintable(){
-  var card = byId('printableCard'); card.innerHTML='';
+  var card = byId('printableCard');
+  if(!card) return;
+  card.innerHTML='';
   var payload = getPayload();
+  // Reuse the Print List (EN) HTML builder for a faithful live preview.
+  var full = buildListHTML_EN(payload);
+  var bodyStart = full.indexOf('<body>');
+  var bodyEnd = full.lastIndexOf('</body>');
+  var inner = (bodyStart !== -1 && bodyEnd !== -1) ? full.slice(bodyStart+6, bodyEnd) : full;
   var wrapper = document.createElement('div');
-  if(PREVIEW_LANG==='es'){
-    renderPerMedTables_ES(wrapper, payload);
-    var taperHTML_ES = buildTaperSummaryHTML_ES(payload);
-    if(taperHTML_ES){ var divES = document.createElement('div'); divES.innerHTML = taperHTML_ES; wrapper.appendChild(divES); }
-  } else {
-    renderPerMedTables(wrapper, payload);
-    var taperHTML = buildTaperSummaryHTML(payload);
-    if(taperHTML){ var div = document.createElement('div'); div.innerHTML = taperHTML; wrapper.appendChild(div); }
-  }
+  wrapper.innerHTML = inner;
   card.appendChild(wrapper);
 }
 
@@ -1565,7 +1877,9 @@ function buildTaperSummaryHTML(payload){ var startFallback = payload.startDate;
 
 function generatePrintHTML(payload){
   function esc(s){ return String(s||'').replace(/[&<>]/g, function(m){ return ({'&':'&amp;','<':'&gt;'}[m]); }); }
-  var start = new Date(((typeof r!=='undefined' && r && r.startDate) ? r.startDate : payload.startDate));
+  var startIso = (r && r.startDate) ? r.startDate : (payload.startDate || (new Date()).toISOString().slice(0,10));
+var start = new Date(startIso);
+if (isNaN(start.getTime())) start = new Date();
   var head = '<!doctype html><html><head><meta charset="utf-8"><title>Eye Drop Helper</title>' +
   '<style>'+cssForcePrintColors()+' :root{--text:#0f172a;--muted:#475569;--border:#e2e8f0}*{box-sizing:border-box} body{margin:28px;color:var(--text);font:17px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}h1{font-size:22px;margin:0 0 6px} .small{color:var(--muted);font-size:14px}table{width:100%;border-collapse:collapse;font-size:16px;margin-top:10px}th,td{border:1px solid var(--border);padding:10px;vertical-align:top;text-align:left}thead th{background:#f1f5f9}.entry{display:flex;align-items:center;gap:8px;margin:3px 0}.legend{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 12px}.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:3px 8px min-width:120px; justify-content:center; text-align:center;}</style></head><body>';
   var body = '';
@@ -1690,8 +2004,8 @@ function generatePdfAndPreview(doSave){
     } catch(e){ reject(e); }
   });
 }
-byId('refreshPreview').onclick = function(){ var b=this; b.disabled=true; b.textContent='Rendering…'; generatePdfAndPreview(false).then(function(){ b.disabled=false; b.textContent='Refresh preview'; }).catch(function(err){ b.disabled=false; b.textContent='Refresh preview'; alert('Preview failed: '+(err&&err.message?err.message:err)); }); };
-byId('downloadPdfBtn').onclick = function(){ if(_pdfCache.blobUrl){ var a=document.createElement('a'); a.href=_pdfCache.blobUrl; a.download='schedule.pdf'; a.click(); } else { generatePdfAndPreview(true).catch(function(err){ alert('Download failed: '+(err&&err.message?err.message:err)); }); } };
+var _refreshBtn = byId('refreshPreview'); if(_refreshBtn) _refreshBtn.onclick = function(){ var b=this; b.disabled=true; b.textContent='Rendering…'; generatePdfAndPreview(false).then(function(){ b.disabled=false; b.textContent='Refresh preview'; }).catch(function(err){ b.disabled=false; b.textContent='Refresh preview'; alert('Preview failed: '+(err&&err.message?err.message:err)); }); };
+var _downloadBtn = byId('downloadPdfBtn'); if(_downloadBtn) _downloadBtn.onclick = function(){ if(_pdfCache.blobUrl){ var a=document.createElement('a'); a.href=_pdfCache.blobUrl; a.download='schedule.pdf'; a.click(); } else { generatePdfAndPreview(true).catch(function(err){ alert('Download failed: '+(err&&err.message?err.message:err)); }); } };
 
 setOnclickIfPresent('printBtn', function () {
   generatePdfAndPreview(true).catch(function(err){
@@ -1792,6 +2106,11 @@ function generatePreviewOnly(){
 
 function buildListHTML_EN(payload){
   function esc(s){ return String(s||'').replace(/[&<>]/g, function(m){ return ({'&':'&amp;','<':'&gt;'}[m]); }); }
+  function formatRange(from, days){
+    var a = new Date(from);
+    var b = new Date(from); b.setDate(b.getDate()+days-1);
+    return esc(a.toLocaleDateString()) + ' – ' + esc(b.toLocaleDateString());
+  }
   var head = '<!doctype html><html><head><meta charset="utf-8"><title>Medication List</title>'+
     '<style>'+cssForcePrintColors()+' *{box-sizing:border-box} body{margin:28px;color:#0f172a;font:18px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}'+
     'h1{font-size:20px;margin:0 0 6px} .small{color:#475569;font-size:14px}'+
@@ -1844,7 +2163,9 @@ function buildListHTML_EN(payload){
       dayCounter = 1; body += '<div class="mname" style="margin-top:8px">'+svgDot(r.capColor, 14)+' '+esc(r.name)+'</div>';
       body += '<div class="small" style="margin:2px 0 6px">Cap: '+esc(getCapLabel(r)||'—')+' • '+esc(eyeFull(r.eye))+'</div>';
       body += '<table><thead><tr><th>' + (r.id==='prednisone' ? 'Day #' : 'Week #') + '</th><th>Dates</th><th>' + (r.id==='prednisone' ? 'Dosage' : '# per day') + '</th></tr></thead><tbody>';
-      var start = new Date(((typeof r!=='undefined' && r && r.startDate) ? r.startDate : payload.startDate));
+      var startIso = (r && r.startDate) ? r.startDate : (payload.startDate || (new Date()).toISOString().slice(0,10));
+var start = new Date(startIso);
+if (isNaN(start.getTime())) start = new Date();
       var cursor = new Date(start);
       var weekDays = 0;
       for(var i=0;i<r.taper.steps.length;i++){
@@ -1852,7 +2173,11 @@ function buildListHTML_EN(payload){
         var a = new Date(cursor);
         var dayStart = dayCounter;
         var dayEnd = dayCounter + (step.days||1) - 1;
-        var dateStr = datesCell;
+        // Calculate datesCell properly using formatRange
+        var datesCell = (window.__removeDatesActive===true || r.startDateMode==='surgery') 
+          ? '' 
+          : formatRange(cursor, step.days);
+        
         var doseLabel = (function(){
           var d = String(step.dose||'').toLowerCase();
           if(d==='60mg') return '60 mg (3 tablets)';
@@ -1865,10 +2190,6 @@ function buildListHTML_EN(payload){
           if(n===1) return '20 mg (1 tablet)';
           return '';
         })();
-
-        var b = new Date(cursor); 
-    var datesCell = (window.__removeDatesActive===true || r.startDateMode==='surgery') ? '' : (datesCell);
-b.setDate(b.getDate()+step.days-1);
         var wStart = Math.floor(weekDays/7)+1;
 var wEnd = Math.floor((weekDays + step.days - 1)/7)+1;
 var weekLabel = (wStart===wEnd) ? ('Week ' + wStart) : ('Weeks ' + wStart + '-' + wEnd);
@@ -1897,6 +2218,11 @@ body += (r.id==='prednisone'
 
 function buildListHTML_ES(payload){
   function esc(s){ return String(s||'').replace(/[&<>]/g, function(m){ return ({'&':'&amp;','<':'&gt;'}[m]); }); }
+  function formatRange(from, days){
+    var a = new Date(from);
+    var b = new Date(from); b.setDate(b.getDate()+days-1);
+    return esc(a.toLocaleDateString()) + ' – ' + esc(b.toLocaleDateString());
+  }
   var head = '<!doctype html><html><head><meta charset="utf-8"><title>Lista de Medicamentos</title>'+
     '<style>'+cssForcePrintColors()+' *{box-sizing:border-box} body{margin:28px;color:#0f172a;font:18px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}'+
     'h1{font-size:20px;margin:0 0 6px} .small{color:#475569;font-size:14px}'+
@@ -1950,7 +2276,9 @@ function buildListHTML_ES(payload){
       body += '<div class="mname" style="margin-top:8px">'+svgDot(r.capColor, 14)+' '+esc(r.name)+'</div>';
       body += '<div class="small" style="margin:2px 0 6px">Tapa: '+esc(getCapLabel_ES(r)||'—')+' • '+esc(eyeFull_ES(r.eye))+'</div>';
       body += '<table><thead><tr><th>' + (r.id==='prednisone' ? 'Día #' : 'Semana') + '</th><th>Fechas</th><th>' + (r.id==='prednisone' ? 'Dosis' : 'N.º al día') + '</th></tr></thead><tbody>';
-      var start = new Date(((typeof r!=='undefined' && r && r.startDate) ? r.startDate : payload.startDate));
+      var startIso = (r && r.startDate) ? r.startDate : (payload.startDate || (new Date()).toISOString().slice(0,10));
+var start = new Date(startIso);
+if (isNaN(start.getTime())) start = new Date();
       var cursor = new Date(start);
       var weekDays = 0;
       for(var i=0;i<r.taper.steps.length;i++){
@@ -1958,7 +2286,11 @@ function buildListHTML_ES(payload){
         var a = new Date(cursor);
         var dayStart = dayCounter;
         var dayEnd = dayCounter + (step.days||1) - 1;
-        var dateStr = datesCell;
+        // Calculate datesCell properly using formatRange
+        var datesCell = (window.__removeDatesActive===true || r.startDateMode==='surgery') 
+          ? '' 
+          : formatRange(cursor, step.days);
+        
         var doseLabel = (function(){
           var d = String(step.dose||'').toLowerCase();
           if(d==='60mg') return '60 mg (3 tablets)';
@@ -1971,10 +2303,6 @@ function buildListHTML_ES(payload){
           if(n===1) return '20 mg (1 tablet)';
           return '';
         })();
-
-        var b = new Date(cursor); 
-    var datesCell = (window.__removeDatesActive===true || r.startDateMode==='surgery') ? '' : (datesCell);
-b.setDate(b.getDate()+step.days-1);
         var wStart = Math.floor(weekDays/7)+1;
 var wEnd = Math.floor((weekDays + step.days - 1)/7)+1;
 var weekLabel = (wStart===wEnd) ? ('Semana ' + wStart) : ('Semanas ' + wStart + '-' + wEnd);
@@ -2080,14 +2408,15 @@ function generateListPDF_ES(){
 }
 
 // Wire up buttons
-setOnclickIfPresent('printListEn', function(){ generateListPDF_EN(); });
-setOnclickIfPresent('printListEs', function(){ generateListPDF_ES(); });
+setOnclickIfPresent('printListEn', function(){ recordCurrentShortcut('printListEn'); generateListPDF_EN(); });
+setOnclickIfPresent('printListEs', function(){ recordCurrentShortcut('printListEs'); generateListPDF_ES(); });
 
 // ----- Bilingual print buttons (independent of toggle) -----
 (function(){
   var enBtn = byId('printBtnEn');
   if(enBtn){
     enBtn.onclick = function(){
+      recordCurrentShortcut('printScheduleEn');
       generatePdfAndPreview(true).catch(function(err){
         try{
           var payload = getPayload();
@@ -2106,6 +2435,7 @@ setOnclickIfPresent('printListEs', function(){ generateListPDF_ES(); });
   var esBtn = byId('printBtnEs');
   if(esBtn){
     esBtn.onclick = function(){
+      recordCurrentShortcut('printScheduleEs');
       generatePdfAndPreview_ES(true).catch(function(err){
         try{
           var payload = getPayload();
@@ -2143,6 +2473,7 @@ byId('addCustomMedBtn').onclick = function () {
     renderCatalog();
     renderSelected();
     buildFilterUI();  
+    renderSmartShortcuts();
     }catch(e){
     alert('Initialization error: ' + e.message);
   }
