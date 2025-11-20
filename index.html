@@ -16,9 +16,11 @@
     h1{font-size:22px;margin:8px 0}
     h2{font-size:18px;margin:0 0 8px 0}
     .btn{border:none;border-radius:12px;padding:10px 14px;cursor:pointer}
-    .btn.primary{background:var(--primary);color:#fff}
+    .btn.primary{background:var(--primary);color:#fff;transition:background .15s ease}
+    .btn.primary:hover{background:#4779c4 !important}
     .btn.dark{background:#0f172a;color:#fff;transition:background .15s ease}
-    .btn.ghost{background:#fff;border:1px solid var(--border)}
+    .btn.ghost{background:#fff;border:1px solid var(--border);transition:background .15s ease}
+    .btn.ghost:hover{background:#f3f4f6}
     #catalog .btn.ghost{transition:background .15s ease,color .15s ease}
     #catalog .btn.ghost:hover{background:#f3f4f6;color:#eab308}
     #catalog .btn.dark{transition:background .15s ease}
@@ -34,11 +36,15 @@
     .row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)}
     .row:last-child{border-bottom:none}
     .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:4px 8px;font-size:12px min-width:120px; justify-content:center; text-align:center;}
+    button.chip{cursor:pointer;transition:background .15s ease,border-color .15s ease;background:#fff}
+    button.chip:hover{background:#f3f4f6 !important;border-color:#d1d5db !important}
     label.small:hover{background:#f3f4f6;}
 
     .cap{width:12px;height:12px;border-radius:999px;border:1px solid #0f172a33}
-    .slot-btn{border:1px solid var(--border);border-radius:999px;padding:6px 10px;background:#fff;font-size:13px;cursor:pointer}
-    .slot-btn.active{background:var(--primary);border-color:var(--primary);color:#fff}
+    .slot-btn{border:1px solid var(--border);border-radius:999px;padding:6px 10px;background:#fff;font-size:13px;cursor:pointer;transition:background .15s ease,border-color .15s ease}
+    .slot-btn:hover{background:#f3f4f6;border-color:#d1d5db}
+    .slot-btn.active{background:var(--primary);border-color:var(--primary);color:#fff;transition:background .15s ease}
+    .slot-btn.active:hover{background:#4779c4;border-color:#4779c4}
     .switch{display:inline-flex;align-items:center;gap:8px}
     .switch input{width:18px;height:18px}
     table{width:100%;border-collapse:collapse;font-size:14px}
@@ -120,8 +126,11 @@ try{
     </div>
 
 <div class="card" id="smartShortcutsCard" style="margin-top:16px">
-  <h2>Smart Shortcuts</h2>
-  <div class="small" id="smartShortcutsEmpty">
+  <div style="display:flex;align-items:center;justify-content:space-between">
+    <h2 style="margin:0">Smart Shortcuts</h2>
+    <button class="btn ghost" id="clearAllShortcutsBtn" style="display:none">Clear All</button>
+  </div>
+  <div class="small" id="smartShortcutsEmpty" style="margin-top:8px">
     No shortcuts saved yet. After you create and print schedules, your most common drop combinations will appear here for one-tap reuse.
   </div>
   <div id="smartShortcutsList" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
@@ -135,8 +144,7 @@ try{
       <div id="catalogControls" style="position:static;background:#fff;padding:8px 0 10px;border-bottom:1px solid var(--border);z-index:auto">
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
     <input id="catalogSearch" type="text" placeholder="Search brand or generic…" style="flex:1;min-width:220px;padding:8px 10px;border:1px solid var(--border);border-radius:10px">
-    <label class="small" style="display:flex;align-items:center;gap:6px"><input id="toggleFavorites" type="checkbox"> ⭐ Favorites</label>
-    <label class="small" style="display:flex;align-items:center;gap:6px"><input id="toggleSelectedFirst" type="checkbox"> Selected first</label>
+    <button id="toggleFavorites" type="button" class="chip" style="font-weight:600;border:1px solid #e5e7eb;background:#fff;color:#111;transition:background-color 120ms ease, color 120ms ease;">⭐ Favorites</button>
   </div>
   <div id="filterChips" class="legend" style="margin-top:8px"></div>
   <div id="colorIndex" class="legend" style="margin-top:8px"></div>
@@ -199,6 +207,16 @@ if (typeof Object.assign != 'function') {
     }
     return target;
   };
+}
+
+// Helper function to parse ISO date string (YYYY-MM-DD) as local date without timezone shift
+function parseLocalDate(dateStr) {
+  if (!dateStr) return new Date();
+  var parts = String(dateStr).split('-');
+  if (parts.length === 3) {
+    return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+  }
+  return new Date(dateStr);
 }
 
 // ---------------- Data & State ----------------
@@ -379,7 +397,7 @@ function translateNotesToSpanish(s){
 function renderPerMedTables_ES(wrapper, payload, opts){
   opts = opts || {}; var hidePatientLine = !!opts.hidePatientLine;
   var startIso = (r && r.startDate) ? r.startDate : (payload.startDate || (new Date()).toISOString().slice(0,10));
-var start = new Date(startIso);
+var start = parseLocalDate(startIso);
 if (isNaN(start.getTime())) start = new Date();
   var dayIndex = 0;
   var dayRegs = activeSlotsForDay(payload.regimen, dayIndex);
@@ -442,8 +460,8 @@ function buildTaperSummaryHTML_ES(payload){ var startFallback = payload.startDat
   var times = payload.times;
   function esc(s){ return String(s||'').replace(/[&<>]/g, function(m){ return ({'&':'&amp;','<':'&gt;'}[m]); }); }
   function formatRange(from, days){
-    var a = new Date(from);
-    var b = new Date(from); b.setDate(b.getDate()+days-1);
+    var a = parseLocalDate(from);
+    var b = parseLocalDate(from); b.setDate(b.getDate()+days-1);
     return esc(a.toLocaleDateString()) + ' – ' + esc(b.toLocaleDateString());
   }
   function slotLabelList(slots){
@@ -453,7 +471,7 @@ function buildTaperSummaryHTML_ES(payload){ var startFallback = payload.startDat
   }
   var out = ''; var any = false; var dayCounter = 1;
   payload.regimen.forEach(function(r){
-    if(r.taper && r.taper.enabled && r.taper.steps && r.taper.steps.length){ var start = new Date(r.startDate || startFallback); var blankDates = (r.startDateMode==='surgery'); dayCounter = 1;any = true;
+    if(r.taper && r.taper.enabled && r.taper.steps && r.taper.steps.length){ var start = parseLocalDate(r.startDate || startFallback); var blankDates = (r.startDateMode==='surgery'); dayCounter = 1;any = true;
       out += '<div style="margin-top:10px"><div style="font-weight:700;margin-bottom:6px">';
       out += svgDot(r.capColor, 10) + r.name + ' <span class=\"small\">(' + eyeFull_ES(r.eye) + ')</span></div>';
       out += '<table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr>';
@@ -497,7 +515,7 @@ function buildTaperSummaryHTML_ES(payload){ var startFallback = payload.startDat
 function generatePrintHTML_ES(payload){
   function esc(s){ return String(s||'').replace(/[&<>]/g, function(m){ return ({'&':'&amp;','<':'&gt;'}[m]); }); }
   var startIso = (r && r.startDate) ? r.startDate : (payload.startDate || (new Date()).toISOString().slice(0,10));
-var start = new Date(startIso);
+var start = parseLocalDate(startIso);
 if (isNaN(start.getTime())) start = new Date();
   var head = '<!doctype html><html><head><meta charset="utf-8"><title>Eye Drop Helper</title>' +
   '<style>'+cssForcePrintColors()+' :root{--text:#0f172a;--muted:#475569;--border:#e2e8f0}*{box-sizing:border-box} body{margin:28px;color:var(--text);font:17px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}h1{font-size:22px;margin:0 0 6px} .small{color:var(--muted);font-size:14px}table{width:100%;border-collapse:collapse;font-size:16px;margin-top:10px}th,td{border:1px solid var(--border);padding:10px;vertical-align:top;text-align:left}thead th{background:#f1f5f9}.entry{display:flex;align-items:center;gap:8px;margin:3px 0}.legend{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 12px}.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:3px 8px min-width:120px; justify-content:center; text-align:center;}</style></head><body>';
@@ -773,6 +791,31 @@ function saveShortcuts(){
   }
 }
 
+function deleteShortcut(sig){
+  if(!sig) return;
+  loadShortcuts();
+  var idx = -1;
+  for(var i=0;i<shortcuts.length;i++){
+    if(shortcuts[i].sig === sig){
+      idx = i;
+      break;
+    }
+  }
+  if(idx !== -1){
+    shortcuts.splice(idx, 1);
+    saveShortcuts();
+    renderSmartShortcuts();
+  }
+}
+
+function clearAllShortcuts(){
+  if(!confirm('Clear all smart shortcuts? This cannot be undone.')) return;
+  shortcuts = [];
+  saveShortcuts();
+  renderSmartShortcuts();
+}
+
+
 function signatureForRegs(regs){
   if(!regs || !regs.length) return '';
   var ids = [];
@@ -802,12 +845,14 @@ function renderSmartShortcuts(){
   if(!card) return;
   var empty = byId('smartShortcutsEmpty');
   var list = byId('smartShortcutsList');
+  var clearAllBtn = byId('clearAllShortcutsBtn');
   if(!list || !empty) return;
 
   var arr = loadShortcuts().slice();
   if(!arr.length){
     empty.style.display = '';
     list.innerHTML = '';
+    if(clearAllBtn) clearAllBtn.style.display = 'none';
     return;
   }
 
@@ -821,6 +866,7 @@ function renderSmartShortcuts(){
 
   var top = arr.slice(0,4);
   empty.style.display = 'none';
+  if(clearAllBtn) clearAllBtn.style.display = '';
   list.innerHTML = '';
 
   function esc(s){
@@ -830,12 +876,17 @@ function renderSmartShortcuts(){
   }
 
   top.forEach(function(sc, idx){
+    var wrapper = document.createElement('div');
+    wrapper.style.position = 'relative';
+    wrapper.style.display = 'inline-block';
+
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'chip';
     btn.style.cursor = 'pointer';
     btn.style.background = '#ffffff';
     btn.style.border = '1px solid var(--border)';
+    btn.style.paddingRight = '28px'; // Make room for X button
 
     var label = sc.label || 'Shortcut';
 
@@ -868,7 +919,45 @@ function renderSmartShortcuts(){
     btn.onclick = function(){
       applyShortcut(sc);
     };
-    list.appendChild(btn);
+
+    // Create X button
+    var deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.innerHTML = '×';
+    deleteBtn.style.position = 'absolute';
+    deleteBtn.style.right = '6px';
+    deleteBtn.style.top = '50%';
+    deleteBtn.style.transform = 'translateY(-50%)';
+    deleteBtn.style.width = '20px';
+    deleteBtn.style.height = '20px';
+    deleteBtn.style.padding = '0';
+    deleteBtn.style.border = 'none';
+    deleteBtn.style.background = 'transparent';
+    deleteBtn.style.cursor = 'pointer';
+    deleteBtn.style.fontSize = '18px';
+    deleteBtn.style.lineHeight = '1';
+    deleteBtn.style.color = '#94a3b8';
+    deleteBtn.style.display = 'flex';
+    deleteBtn.style.alignItems = 'center';
+    deleteBtn.style.justifyContent = 'center';
+    deleteBtn.style.borderRadius = '999px';
+    deleteBtn.style.transition = 'background 0.15s ease, color 0.15s ease';
+    deleteBtn.onmouseenter = function(){ 
+      deleteBtn.style.background = '#f1f5f9'; 
+      deleteBtn.style.color = '#475569';
+    };
+    deleteBtn.onmouseleave = function(){ 
+      deleteBtn.style.background = 'transparent'; 
+      deleteBtn.style.color = '#94a3b8';
+    };
+    deleteBtn.onclick = function(e){
+      e.stopPropagation();
+      deleteShortcut(sc.sig);
+    };
+
+    wrapper.appendChild(btn);
+    wrapper.appendChild(deleteBtn);
+    list.appendChild(wrapper);
   });
 }
 
@@ -1402,8 +1491,16 @@ function buildFilterUI(){
 
   // Wire search + toggles
   var search = byId('catalogSearch'); if(search){ search.oninput = function(){ filters.q = search.value; renderCatalog(); }; }
-  var favT = byId('toggleFavorites'); if(favT){ favT.onchange = function(){ filters.showFavs = favT.checked; renderCatalog(); }; }
-  var selFirst = byId('toggleSelectedFirst'); if(selFirst){ selFirst.onchange = function(){ filters.selectedFirst = selFirst.checked; renderCatalog(); }; }
+  var favT = byId('toggleFavorites'); 
+  if(favT){ 
+    favT.onclick = function(){ 
+      filters.showFavs = !filters.showFavs; 
+      favT.style.background = filters.showFavs ? '#4f46e5' : '#fff';
+      favT.style.color = filters.showFavs ? '#fff' : '#111';
+      favT.setAttribute('aria-pressed', filters.showFavs ? 'true' : 'false');
+      renderCatalog(); 
+    }; 
+  }
 }
 
 function renderQR(){
@@ -1455,7 +1552,15 @@ function renderSelected(){
       dos.style.fontWeight = active ? '600' : '500';
       dos.style.border = '1px solid #e5e7eb';
       dos.style.transition = 'background-color 120ms ease, color 120ms ease';
-      dos.style.background = active ? '#4f46e5' : '#fff';dos.onclick=function(){ s.startDateMode = (s.startDateMode==='surgery') ? null : 'surgery'; renderSelected(); };sw.appendChild(cb); sw.appendChild(lbl); sw.appendChild(dos); 
+      dos.style.background = active ? '#4f46e5' : '#fff';
+      // Add hover handlers to change text color when active
+      dos.onmouseenter = function(){ 
+        if(s.startDateMode==='surgery'){ dos.style.color = '#111'; }
+      };
+      dos.onmouseleave = function(){ 
+        if(s.startDateMode==='surgery'){ dos.style.color = '#fff'; }
+      };
+      dos.onclick=function(){ s.startDateMode = (s.startDateMode==='surgery') ? null : 'surgery'; renderSelected(); };sw.appendChild(cb); sw.appendChild(lbl); sw.appendChild(dos); 
       // === Per-medication taper start date control (Safari-safe, identical style to Remove Dates, bolded) ===
       var dateWrap = document.createElement('span');
       dateWrap.style.marginLeft = '8px';
@@ -1468,11 +1573,9 @@ function renderSelected(){
       editBtn.type = 'button';
       editBtn.className = 'chip';
       editBtn.textContent = 'Edit Taper Start Date';
-      // Match "Remove Dates" bold + color + hover
+      // Match "Remove Dates" bold styling
       editBtn.style.fontWeight = '600';
-      editBtn.style.background = '#fff';
-      editBtn.onmouseenter = function(){ editBtn.style.background = '#f3f4f6'; };
-      editBtn.onmouseleave = function(){ editBtn.style.background = '#fff'; };
+      editBtn.style.border = '1px solid #e5e7eb';
 
       // Visible date text in US format (MM/DD/YYYY)
       var dateTxt = document.createElement('span');
@@ -1482,6 +1585,11 @@ function renderSelected(){
 
       function fmtUS(d){
         try{
+          // Parse date string as local date to avoid timezone shift
+          var parts = d.split('-');
+          if(parts.length === 3){
+            return new Date(parts[0], parts[1] - 1, parts[2]).toLocaleDateString('en-US');
+          }
           return new Date(d).toLocaleDateString('en-US');
         }catch(e){
           return '';
@@ -1501,6 +1609,7 @@ function renderSelected(){
       dateInp.style.cursor = 'pointer';
       dateInp.style.border = 'none';
       dateInp.style.background = 'transparent';
+      dateInp.style.pointerEvents = 'auto';
 
       // Default date value + text
       (function(){
@@ -1521,6 +1630,10 @@ function renderSelected(){
         if(val){ dateTxt.textContent = fmtUS(val); }
         renderSelected();
       };
+
+      // Add hover effect to wrapper since dateInp overlays the button
+      dateWrap.onmouseenter = function(){ editBtn.style.background = '#f3f4f6'; };
+      dateWrap.onmouseleave = function(){ editBtn.style.background = '#fff'; };
 
       dateWrap.appendChild(editBtn);
       dateWrap.appendChild(dateTxt);
@@ -1746,7 +1859,7 @@ if(s.id!=='prednisone'){var slotsDiv = document.createElement('div'); slotsDiv.s
 function renderPerMedTables(wrapper, payload, opts){
   opts = opts || {}; var hidePatientLine = !!opts.hidePatientLine;
   var startIso = (r && r.startDate) ? r.startDate : (payload.startDate || (new Date()).toISOString().slice(0,10));
-var start = new Date(startIso);
+var start = parseLocalDate(startIso);
 if (isNaN(start.getTime())) start = new Date();
   var dayIndex = 0;
   var dayRegs = activeSlotsForDay(payload.regimen, dayIndex);
@@ -1825,8 +1938,8 @@ function buildTaperSummaryHTML(payload){ var startFallback = payload.startDate;
   var times = payload.times;
   function esc(s){ return String(s||'').replace(/[&<>]/g, function(m){ return ({'&':'&amp;','<':'&gt;'}[m]); }); }
   function formatRange(from, days){
-    var a = new Date(from);
-    var b = new Date(from); b.setDate(b.getDate()+days-1);
+    var a = parseLocalDate(from);
+    var b = parseLocalDate(from); b.setDate(b.getDate()+days-1);
     return esc(a.toLocaleDateString()) + ' – ' + esc(b.toLocaleDateString());
   }
   function slotLabelList(slots){
@@ -1837,7 +1950,7 @@ function buildTaperSummaryHTML(payload){ var startFallback = payload.startDate;
   var out = '';
   var any = false; var dayCounter = 1;
   payload.regimen.forEach(function(r){
-    if(r.taper && r.taper.enabled && r.taper.steps && r.taper.steps.length){ var start = new Date(r.startDate || startFallback); var blankDates = (r.startDateMode==='surgery'); dayCounter = 1;dayCounter = 1;any = true;
+    if(r.taper && r.taper.enabled && r.taper.steps && r.taper.steps.length){ var start = parseLocalDate(r.startDate || startFallback); var blankDates = (r.startDateMode==='surgery'); dayCounter = 1;dayCounter = 1;any = true;
       out += '<div style="margin-top:10px"><div style="font-weight:700;margin-bottom:6px">';
       out += svgDot(r.capColor, 10) + r.name + ' <span class=\"small\">(' + eyeFull(r.eye) + ')</span></div>';
       out += '<table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr>';
@@ -1878,7 +1991,7 @@ function buildTaperSummaryHTML(payload){ var startFallback = payload.startDate;
 function generatePrintHTML(payload){
   function esc(s){ return String(s||'').replace(/[&<>]/g, function(m){ return ({'&':'&amp;','<':'&gt;'}[m]); }); }
   var startIso = (r && r.startDate) ? r.startDate : (payload.startDate || (new Date()).toISOString().slice(0,10));
-var start = new Date(startIso);
+var start = parseLocalDate(startIso);
 if (isNaN(start.getTime())) start = new Date();
   var head = '<!doctype html><html><head><meta charset="utf-8"><title>Eye Drop Helper</title>' +
   '<style>'+cssForcePrintColors()+' :root{--text:#0f172a;--muted:#475569;--border:#e2e8f0}*{box-sizing:border-box} body{margin:28px;color:var(--text);font:17px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}h1{font-size:22px;margin:0 0 6px} .small{color:var(--muted);font-size:14px}table{width:100%;border-collapse:collapse;font-size:16px;margin-top:10px}th,td{border:1px solid var(--border);padding:10px;vertical-align:top;text-align:left}thead th{background:#f1f5f9}.entry{display:flex;align-items:center;gap:8px;margin:3px 0}.legend{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 12px}.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:3px 8px min-width:120px; justify-content:center; text-align:center;}</style></head><body>';
@@ -2107,8 +2220,8 @@ function generatePreviewOnly(){
 function buildListHTML_EN(payload){
   function esc(s){ return String(s||'').replace(/[&<>]/g, function(m){ return ({'&':'&amp;','<':'&gt;'}[m]); }); }
   function formatRange(from, days){
-    var a = new Date(from);
-    var b = new Date(from); b.setDate(b.getDate()+days-1);
+    var a = parseLocalDate(from);
+    var b = parseLocalDate(from); b.setDate(b.getDate()+days-1);
     return esc(a.toLocaleDateString()) + ' – ' + esc(b.toLocaleDateString());
   }
   var head = '<!doctype html><html><head><meta charset="utf-8"><title>Medication List</title>'+
@@ -2164,7 +2277,7 @@ function buildListHTML_EN(payload){
       body += '<div class="small" style="margin:2px 0 6px">Cap: '+esc(getCapLabel(r)||'—')+' • '+esc(eyeFull(r.eye))+'</div>';
       body += '<table><thead><tr><th>' + (r.id==='prednisone' ? 'Day #' : 'Week #') + '</th><th>Dates</th><th>' + (r.id==='prednisone' ? 'Dosage' : '# per day') + '</th></tr></thead><tbody>';
       var startIso = (r && r.startDate) ? r.startDate : (payload.startDate || (new Date()).toISOString().slice(0,10));
-var start = new Date(startIso);
+var start = parseLocalDate(startIso);
 if (isNaN(start.getTime())) start = new Date();
       var cursor = new Date(start);
       var weekDays = 0;
@@ -2219,8 +2332,8 @@ body += (r.id==='prednisone'
 function buildListHTML_ES(payload){
   function esc(s){ return String(s||'').replace(/[&<>]/g, function(m){ return ({'&':'&amp;','<':'&gt;'}[m]); }); }
   function formatRange(from, days){
-    var a = new Date(from);
-    var b = new Date(from); b.setDate(b.getDate()+days-1);
+    var a = parseLocalDate(from);
+    var b = parseLocalDate(from); b.setDate(b.getDate()+days-1);
     return esc(a.toLocaleDateString()) + ' – ' + esc(b.toLocaleDateString());
   }
   var head = '<!doctype html><html><head><meta charset="utf-8"><title>Lista de Medicamentos</title>'+
@@ -2277,7 +2390,7 @@ function buildListHTML_ES(payload){
       body += '<div class="small" style="margin:2px 0 6px">Tapa: '+esc(getCapLabel_ES(r)||'—')+' • '+esc(eyeFull_ES(r.eye))+'</div>';
       body += '<table><thead><tr><th>' + (r.id==='prednisone' ? 'Día #' : 'Semana') + '</th><th>Fechas</th><th>' + (r.id==='prednisone' ? 'Dosis' : 'N.º al día') + '</th></tr></thead><tbody>';
       var startIso = (r && r.startDate) ? r.startDate : (payload.startDate || (new Date()).toISOString().slice(0,10));
-var start = new Date(startIso);
+var start = parseLocalDate(startIso);
 if (isNaN(start.getTime())) start = new Date();
       var cursor = new Date(start);
       var weekDays = 0;
@@ -2462,6 +2575,12 @@ byId('addCustomMedBtn').onclick = function () {
   var id = name.toLowerCase().replace(/[^a-z0-9]+/g,'-');
   catalog.push({id:id,name:name,capColor:capColor,capLabel:capLabel||undefined,medClass:cls,freqPresets:[]}); renderCatalog();
 };
+var clearAllBtn = byId('clearAllShortcutsBtn');
+if(clearAllBtn){
+  clearAllBtn.onclick = function(){
+    clearAllShortcuts();
+  };
+}
 ['patientName','startDate','durationDays','t_morning','t_noon','t_evening','t_bedtime'].forEach(function(id){
   byId(id).addEventListener('input', function(){ renderQR(); renderPrintable(); });
 });
